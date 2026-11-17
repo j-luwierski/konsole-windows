@@ -20,8 +20,12 @@ W PowerShell z aktywnym środowiskiem Craft, w katalogu tego repozytorium:
 ```
 
 Skrypt kompiluje lokalnie zmienione źródła, uruchamia testy backendu,
-a następnie tworzy instalator EXE i archiwum z zależnościami w
-`dist/custom-windows`. Budowanie Konsole ma wyłączony cache binarny;
+a następnie tworzy portable ZIP z konsole.exe i zależnościami w
+`dist/custom-windows`. Rozpakuj cały ZIP i uruchom `bin/konsole.exe`.
+Nie przenoś samego EXE bez bibliotek i zasobów. Opcjonalny instalator
+buduje parametr `-WithInstaller`. Wersja portable nie wymaga instalacji;
+ustawienia Qt/KDE mogą nadal być zapisywane w profilu użytkownika Windows.
+Budowanie Konsole ma wyłączony cache binarny;
 cache jest używany do zależności. `build-info.json` identyfikuje źródłowy
 commit, a pliki `.sha256` pozwalają sprawdzić integralność pakietów.
 
