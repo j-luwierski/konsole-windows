@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 3.21)
+project(KonsoleWindowsBackendTests LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_AUTOMOC ON)
+find_package(Qt6 6.2 REQUIRED COMPONENTS Core Test)
+enable_testing()
+add_executable(WindowsProcessTest WindowsProcessTest.cpp)
+target_link_libraries(WindowsProcessTest PRIVATE Qt6::Core Qt6::Test)
+add_test(NAME WindowsProcessTest COMMAND WindowsProcessTest)
+if(WIN32)
+    add_executable(ConPtyTest ConPtyTest.cpp
+        ../../src/ptyqt/conptyprocess.cpp ../../src/ptyqt/conptyprocess.h
+        ../../src/ptyqt/iptyprocess.cpp ../../src/ptyqt/iptyprocess.h)
+    target_link_libraries(ConPtyTest PRIVATE Qt6::Core Qt6::Test)
+    target_compile_definitions(ConPtyTest PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+    add_test(NAME ConPtyTest COMMAND ConPtyTest)
+    set_tests_properties(ConPtyTest PROPERTIES TIMEOUT 60)
+endif()
