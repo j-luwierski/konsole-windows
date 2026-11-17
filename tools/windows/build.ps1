@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Run in an initialized KDE Craft PowerShell environment (MSVC x64).
-param([string]$OutputDirectory = '', [switch]$SkipPackage)
+param([string]$OutputDirectory = '', [switch]$SkipPackage, [switch]$WithInstaller)
 $ErrorActionPreference = 'Stop'
 if (-not (Get-Command craft -ErrorAction SilentlyContinue)) {
     throw 'Initialize KDE Craft first: https://develop.kde.org/docs/getting-started/building/craft/craft-windows/'
@@ -29,13 +29,18 @@ if ($LASTEXITCODE -ne 0) { throw 'Backend test compilation failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Backend tests failed; package was not created.' }
 
 if (-not $SkipPackage) {
-    Invoke-CraftChecked @('nsis')
     $packageOptions = $sourceOptions + @('--options', "[Packager]Destination=$OutputDirectory",
-        '--options', '[Packager]PackageDebugSymbols=False')
-    Invoke-CraftChecked (@('--package') + $packageOptions + @('--options', '[Packager]PackageType=NullsoftInstallerPackager', 'konsole'))
-    Invoke-CraftChecked (@('--package') + $packageOptions + @('--options', '[Packager]PackageType=CreateArchivePackager', 'konsole'))
-    $installers = @(Get-ChildItem $OutputDirectory -Filter '*.exe')
-    if ($installers.Count -eq 0) { throw 'Packaging did not produce an EXE installer.' }
+        '--options', '[Packager]PackageDebugSymbols=False', '--options', '[Packager]7ZipArchiveType=zip')
+    Invoke-CraftChecked (@('--package') + $packageOptions + @('--options', '[Packager]PackageType=PortablePackager', 'konsole'))
+    $archives = @(Get-ChildItem $OutputDirectory -Filter '*.zip')
+    if ($archives.Count -eq 0) { throw 'Packaging did not produce a portable ZIP.' }
+    if ($WithInstaller) {
+        Invoke-CraftChecked @('nsis')
+        Invoke-CraftChecked (@('--package') + $packageOptions + @('--options', '[Packager]PackageType=NullsoftInstallerPackager', 'konsole'))
+        if (@(Get-ChildItem $OutputDirectory -Filter '*.exe').Count -eq 0) {
+            throw 'Packaging did not produce an EXE installer.'
+        }
+    }
 }
 $revision = (& git -C $sourceDirectory rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0) { throw 'Cannot identify source revision.' }
