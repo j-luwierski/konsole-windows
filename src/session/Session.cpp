@@ -1029,12 +1029,12 @@ void Session::close()
 
 bool Session::closeInNormalWay()
 {
+    _autoClose = true;
+    _closePerUserRequest = true;
 #ifdef Q_OS_WIN
     _shellProcess->closePty();
     return true;
 #else
-    _autoClose = true;
-    _closePerUserRequest = true;
 
     // for the possible case where following events happen in sequence:
     //
