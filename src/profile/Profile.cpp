@@ -15,6 +15,7 @@
 #include <QFileInfo>
 #include <QFontDatabase>
 #include <QStringConverter>
+#include <QStandardPaths>
 
 // KF
 #include <KLocalizedString>
@@ -205,6 +206,8 @@ QHash<QString, Profile::PropertyInfo> Profile::PropertyInfoByName;
 static const QString BUILTIN_MAGIC_PATH = QStringLiteral("FALLBACK/");
 
 #ifdef Q_OS_WIN
+#include "ptyqt/windowsshellintegration.h"
+
 static QString checkFile(const QStringList &dirList, const QString &filePath)
 {
     for (const QString &root : dirList) {
@@ -218,6 +221,10 @@ static QString checkFile(const QStringList &dirList, const QString &filePath)
 
 static QString GetWindowPowerShell()
 {
+    const auto modernPowerShell = QStandardPaths::findExecutable(QStringLiteral("pwsh.exe"));
+    if (!modernPowerShell.isEmpty()) {
+        return modernPowerShell;
+    }
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     QStringList dirList;
     dirList << env.value(QStringLiteral("windir"), QStringLiteral("C:\\Windows"));
@@ -287,9 +294,18 @@ void Profile::useBuiltin()
     setProperty(Name, i18nc("Name of the built-in profile", "Built-in"));
     setProperty(UntranslatedName, QStringLiteral("Built-in"));
     setProperty(Path, BUILTIN_MAGIC_PATH);
-    setProperty(Command, defaultShell());
-    // See Pty.cpp on why Arguments is populated
-    setProperty(Arguments, QStringList{defaultShell()});
+    const QString shell = defaultShell();
+    setProperty(Command, shell);
+    // The first argument is the program name; Session removes it before launch.
+    QStringList arguments{shell};
+#ifdef Q_OS_WIN
+    const QString shellName = QFileInfo(shell).completeBaseName();
+    if (shellName.compare(QLatin1String("pwsh"), Qt::CaseInsensitive) == 0
+        || shellName.compare(QLatin1String("powershell"), Qt::CaseInsensitive) == 0) {
+        arguments += WindowsShellIntegration::arguments();
+    }
+#endif
+    setProperty(Arguments, arguments);
     setProperty(Font, QFontDatabase::systemFont(QFontDatabase::FixedFont));
 #if defined(Q_OS_WIN)
     setProperty(DefaultEncoding, QString::fromUtf8(QStringConverter::nameForEncoding(QStringConverter::Utf8)));
