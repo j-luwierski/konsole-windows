@@ -88,6 +88,7 @@ ConPtyProcess::ConPtyProcess()
 
 ConPtyProcess::~ConPtyProcess()
 {
+    m_aboutToDestruct = true;
     kill();
 }
 
@@ -254,6 +255,7 @@ bool ConPtyProcess::resize(qint16 cols, qint16 rows)
 
 bool ConPtyProcess::kill()
 {
+    const bool notifyExit = !m_aboutToDestruct && !m_exitNotified && m_pid > 0;
     m_aboutToDestruct = true;
     m_exitPoll.stop();
     disconnect(&m_exitPoll, nullptr, this, nullptr);
@@ -276,6 +278,12 @@ bool ConPtyProcess::kill()
         delete m_readThread;
         m_readThread = nullptr;
     }
+    if (notifyExit) {
+        DWORD code = 0;
+        if (GetExitCodeProcess(m_shellProcessInformation.hProcess, &code) && code != STILL_ACTIVE) {
+            m_exitCode = int(code);
+        }
+    }
     for (HANDLE *handle : {&m_hPipeIn, &m_hPipeOut, &m_shellProcessInformation.hThread, &m_shellProcessInformation.hProcess}) {
         if (*handle && *handle != INVALID_HANDLE_VALUE) {
             CloseHandle(*handle);
@@ -288,6 +296,11 @@ bool ConPtyProcess::kill()
         m_shellStartupInfo = {};
     }
     m_pid = 0;
+    if (notifyExit) {
+        m_exitNotified = true;
+        Q_EMIT m_buffer.readyRead();
+        Q_EMIT exited();
+    }
     return hadConsole;
 }
 
