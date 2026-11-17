@@ -43,6 +43,16 @@ Zachowano obsługę skrótów i schowka z Konsole:
 | Kopiowanie zaznaczenia | Ctrl+Shift+C lub Ctrl+Insert |
 | Wklejanie ze schowka | Ctrl+Shift+V lub Shift+Insert |
 | Wyszukiwanie w terminalu | Ctrl+Shift+F |
+| Uzupełnianie poleceń i ścieżek w PowerShell | Tab (styl Bash: Complete) |
+| Przeszukiwanie historii poleceń wstecz | Ctrl+R |
+
+Domyślny profil wybiera PowerShell 7 (`pwsh.exe`), jeśli jest dostępny,
+albo Windows PowerShell 5.1. Przy starcie automatycznie ładuje PSReadLine,
+konfiguruje Tab i Ctrl+R oraz zapis historii między sesjami. Konfiguracja
+jest wbudowana w EXE i działa także w portable ZIP; nie zmienia systemowego
+profilu PowerShella. Powłoki Windows PowerShell/PowerShell 7 muszą mieć
+moduł PSReadLine. W WSL i SSH obsługę tych klawiszy zapewnia zdalna powłoka;
+`cmd.exe` nie otrzymuje funkcji PSReadLine.
 
 Zaznaczenie wykonuje się myszą. Kopiowanie i wklejanie jest też dostępne
 w menu kontekstowym. Ctrl+C zachowuje znaczenie przerwania programu.
