@@ -46,8 +46,11 @@ private Q_SLOTS:
         const QByteArray input("echo konsole-input-ok\r\n");
         QCOMPARE(process.write(input.constData(), input.size()), qint64(input.size()));
         QTRY_VERIFY_WITH_TIMEOUT(output.contains("konsole-input-ok"), 10000);
+        QSignalSpy exited(&process, &IPtyProcess::exited);
         process.kill();
+        QCOMPARE(exited.count(), 1);
         process.kill();
+        QCOMPARE(exited.count(), 1);
     }
 };
 QTEST_GUILESS_MAIN(ConPtyTest)
