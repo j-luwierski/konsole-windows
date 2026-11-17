@@ -42,3 +42,6 @@ doxydoc/
 /tests/legacy/audit
 /tests/legacy/quote
 /tests/misc/ripple
+
+# Downloaded and locally built Windows distributions
+/dist/
