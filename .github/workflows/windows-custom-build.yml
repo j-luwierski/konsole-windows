@@ -1,8 +1,9 @@
 name: Custom Konsole Windows EXE
 on:
-  push:
-    branches: [master, windows-port]
   workflow_dispatch:
+concurrency:
+  group: custom-windows-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
