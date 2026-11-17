@@ -24,6 +24,10 @@ jobs:
       - name: Bootstrap KDE Craft
         run: |
           Invoke-WebRequest https://raw.githubusercontent.com/KDE/craft/master/setup/CraftBootstrap.py -OutFile "$env:RUNNER_TEMP/CraftBootstrap.py"
+          # Hosted Windows runners also define Android SDK variables. Craft's
+          # bootstrap otherwise selects Android's MinSizeRel cache settings.
+          Remove-Item Env:ANDROID_SDK_ROOT -ErrorAction SilentlyContinue
+          Remove-Item Env:ANDROID_NDK -ErrorAction SilentlyContinue
           python "$env:RUNNER_TEMP/CraftBootstrap.py" --prefix C:/CraftRoot --use-defaults
           if ($LASTEXITCODE -ne 0) { throw 'Craft bootstrap failed.' }
       - name: Compile patched Konsole, test ConPTY, package EXE
