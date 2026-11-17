@@ -45,6 +45,13 @@ HRESULT ConPtyProcess::initializeStartupInfoAttachedToPseudoConsole(STARTUPINFOE
     if (pStartupInfo) {
         SIZE_T attrListSize{};
 
+        // Explicit null standard handles let the child initialize its ConPTY
+        // console handles instead of inheriting redirected handles from a CLI
+        // launcher (including CTest or PowerShell).
+        pStartupInfo->StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
+        pStartupInfo->StartupInfo.hStdInput = nullptr;
+        pStartupInfo->StartupInfo.hStdOutput = nullptr;
+        pStartupInfo->StartupInfo.hStdError = nullptr;
         pStartupInfo->StartupInfo.cb = sizeof(STARTUPINFOEX);
 
         // Get the size of the thread attribute list.
