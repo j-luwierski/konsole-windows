@@ -442,24 +442,28 @@ void Pty::dataReceived()
     }
 }
 
-void Pty::setWindowSize(int columns, int lines, int, int)
+void Pty::setWindowSize(int columns, int lines, int width, int height)
 {
-    if (m_proc && isRunning())
+    if (columns <= 0 || lines <= 0) {
+        return;
+    }
+    _windowColumns = columns;
+    _windowLines = lines;
+    _windowWidth = width;
+    _windowHeight = height;
+    if (m_proc && isRunning()) {
         m_proc->resize(columns, lines);
+    }
 }
 
 QSize Pty::windowSize() const
 {
-    if (!m_proc) {
-        return {};
-    }
-    auto s = m_proc->size();
-    return QSize(s.first, s.second);
+    return {_windowColumns, _windowLines};
 }
 
 QSize Pty::pixelSize() const
 {
-    return QSize();
+    return {_windowWidth, _windowHeight};
 }
 
 void Pty::setFlowControlEnabled(bool enable)
@@ -499,18 +503,14 @@ int Pty::start(const QString &program, const QStringList &arguments, const QStri
     if (!m_proc || !m_proc->isAvailable()) {
         return -1;
     }
-    bool res = m_proc->startProcess(program, arguments, workingDir, environment, cols, lines);
-    if (!res) {
+    auto n = m_proc->notifier();
+    connect(n, &QIODevice::readyRead, this, &Pty::dataReceived, Qt::UniqueConnection);
+    connect(m_proc.get(), &IPtyProcess::exited, this, [this] {
+        Q_EMIT finished(exitCode(), QProcess::NormalExit);
+    });
+    setWindowSize(cols > 0 ? cols : 80, lines > 0 ? lines : 24, _windowWidth, _windowHeight);
+    if (!m_proc->startProcess(program, arguments, workingDir, environment, _windowColumns, _windowLines)) {
         return -1;
-    } else {
-        auto n = m_proc->notifier();
-        connect(n, &QIODevice::readyRead, this, &Pty::dataReceived);
-        connect(m_proc.get(), &IPtyProcess::exited, this, [this] {
-            Q_EMIT finished(exitCode(), QProcess::NormalExit);
-        });
-        connect(n, &QIODevice::aboutToClose, this, [this] {
-            Q_EMIT finished(exitCode(), QProcess::NormalExit);
-        });
     }
     return 0;
 }

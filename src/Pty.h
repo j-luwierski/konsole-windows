@@ -11,6 +11,7 @@
 // Qt
 #include <QProcess>
 #include <QSize>
+#include <memory>
 
 // Konsole
 #include "konsoleprivate_export.h"
