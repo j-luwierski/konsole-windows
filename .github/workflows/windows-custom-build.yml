@@ -32,8 +32,19 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Craft bootstrap failed.' }
       - name: Compile patched Konsole, test ConPTY, package EXE
         run: |
-          . C:/CraftRoot/craft/craftenv.ps1
-          & ./tools/windows/build.ps1
+          # Set up the environment without craftenv.ps1 clearing the screen
+          # or changing the working directory in this headless runner.
+          Remove-Item Env:ANDROID_SDK_ROOT -ErrorAction SilentlyContinue
+          Remove-Item Env:ANDROID_NDK -ErrorAction SilentlyContinue
+          $env:CraftRoot = 'C:/CraftRoot/craft'
+          $environmentJson = & python C:/CraftRoot/craft/bin/CraftSetupHelper.py --setup --format=json
+          if ($LASTEXITCODE -ne 0) { throw 'Craft environment setup failed.' }
+          $craftEnvironment = $environmentJson | ConvertFrom-Json
+          foreach ($property in $craftEnvironment.PSObject.Properties) {
+            Set-Item -Path "Env:$($property.Name)" -Value $property.Value
+          }
+          function global:craft { & python C:/CraftRoot/craft/bin/craft.py @args }
+          & "$env:GITHUB_WORKSPACE/tools/windows/build.ps1"
       - name: Upload custom installer and portable archive
         uses: actions/upload-artifact@v4
         with:
