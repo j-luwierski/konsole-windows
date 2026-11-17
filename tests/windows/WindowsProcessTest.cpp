@@ -9,6 +9,7 @@ private Q_SLOTS:
     void quoting()
     {
         using WindowsProcessUtils::quoteArgument;
+        QCOMPARE(quoteArgument(QStringLiteral("/d")), QStringLiteral("/d"));
         QCOMPARE(quoteArgument(QString()), QStringLiteral("\"\""));
         QCOMPARE(quoteArgument(QStringLiteral("a b")), QStringLiteral("\"a b\""));
         QCOMPARE(quoteArgument(QStringLiteral("a\"b")), QStringLiteral("\"a\\\"b\""));
