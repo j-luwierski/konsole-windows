@@ -16,6 +16,10 @@ namespace WindowsProcessUtils
 // Quote each argument according to the Windows CRT command-line rules.
 inline QString quoteArgument(const QString &argument)
 {
+    if (!argument.isEmpty() && !argument.contains(QLatin1Char(' ')) && !argument.contains(QLatin1Char('\t'))
+        && !argument.contains(QLatin1Char('"'))) {
+        return argument;
+    }
     QString result(QLatin1Char('"'));
     int backslashes = 0;
     for (QChar ch : argument) {
