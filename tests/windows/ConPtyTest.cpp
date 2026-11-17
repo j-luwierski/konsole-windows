@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: MIT */
 #include "../../src/ptyqt/conptyprocess.h"
+#include "../../src/ptyqt/windowsshellintegration.h"
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include <QtTest>
 
 class ConPtyTest : public QObject
@@ -31,6 +33,41 @@ private Q_SLOTS:
         QVERIFY(output.contains("konsole-conpty-ok"));
         QCOMPARE(process.exitCode(), 7);
         QCOMPARE(process.pid(), 0);
+        process.kill();
+    }
+    void powerShellCompletionAndHistory_data()
+    {
+        QTest::addColumn<QString>("shell");
+        const auto windowsPowerShell = QStandardPaths::findExecutable(QStringLiteral("powershell.exe"));
+        QVERIFY2(!windowsPowerShell.isEmpty(), "Windows PowerShell must be available for the default profile");
+        QTest::newRow("WindowsPowerShell") << windowsPowerShell;
+        const auto pwsh = QStandardPaths::findExecutable(QStringLiteral("pwsh.exe"));
+        if (!pwsh.isEmpty()) {
+            QTest::newRow("PowerShell7") << pwsh;
+        }
+    }
+    void powerShellCompletionAndHistory()
+    {
+        QFETCH(QString, shell);
+        ConPtyProcess process;
+        QByteArray output;
+        connect(process.notifier(), &QIODevice::readyRead, this, [&] { output += process.readAll(); });
+        const auto script = WindowsShellIntegration::initializationScript() + QStringLiteral(R"PS(
+if ((Get-PSReadLineKeyHandler -Chord Tab).Function -ne 'Complete') { throw 'Tab binding not initialized' }
+if ((Get-PSReadLineKeyHandler -Chord Ctrl+r).Function -ne 'ReverseSearchHistory') { throw 'Ctrl+R binding not initialized' }
+Write-Output 'konsole-readline-ready'
+)PS");
+        QVERIFY2(process.startProcess(shell, WindowsShellIntegration::arguments(script), {}, {}, 120, 40), qPrintable(process.lastError()));
+        QTRY_VERIFY_WITH_TIMEOUT(output.contains("konsole-readline-ready"), 20000);
+        // The expected result is not present verbatim in the input, so merely
+        // echoing the keystrokes cannot make this test pass.
+        const QByteArray complete("Write-Out\t ('konsole-'+'completed-result')\r");
+        QCOMPARE(process.write(complete.constData(), complete.size()), qint64(complete.size()));
+        QTRY_VERIFY_WITH_TIMEOUT(output.contains("konsole-completed-result"), 15000);
+        const auto previousResults = output.count("konsole-completed-result");
+        const QByteArray search("\x12" "completed-result\r");
+        QCOMPARE(process.write(search.constData(), search.size()), qint64(search.size()));
+        QTRY_VERIFY_WITH_TIMEOUT(output.count("konsole-completed-result") > previousResults, 15000);
         process.kill();
     }
     void inputAndResize()

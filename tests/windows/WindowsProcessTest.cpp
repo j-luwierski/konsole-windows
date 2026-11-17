@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 #include "../../src/ptyqt/windowsprocessutils.h"
+#include "../../src/ptyqt/windowsshellintegration.h"
 #include <QtTest>
 
 class WindowsProcessTest : public QObject
@@ -15,6 +16,17 @@ private Q_SLOTS:
         QCOMPARE(quoteArgument(QStringLiteral("a\"b")), QStringLiteral("\"a\\\"b\""));
         QCOMPARE(quoteArgument(QStringLiteral("C:\\a b\\")), QStringLiteral("\"C:\\a b\\\\\""));
         QCOMPARE(quoteArgument(QStringLiteral("a\\\"b")), QStringLiteral("\"a\\\\\\\"b\""));
+    }
+    void powerShellInitialization()
+    {
+        const auto arguments = WindowsShellIntegration::arguments();
+        QVERIFY(arguments.contains(QStringLiteral("-NoExit")));
+        const QByteArray bytes = QByteArray::fromBase64(arguments.constLast().toLatin1());
+        QStringDecoder decoder(QStringDecoder::Utf16LE);
+        const QString decoded = decoder(bytes);
+        QCOMPARE(decoded, WindowsShellIntegration::initializationScript());
+        QVERIFY(decoded.contains(QStringLiteral("-Chord Tab -Function Complete")));
+        QVERIFY(decoded.contains(QStringLiteral("-Chord Ctrl+r -Function ReverseSearchHistory")));
     }
     void environment()
     {
