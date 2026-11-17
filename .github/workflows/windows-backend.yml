@@ -1,0 +1,15 @@
+name: Windows ConPTY backend
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  backend:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          arch: win64_msvc2022_64
+          cache: true
+      - run: cmake -S tests/windows -B build-windows-tests -A x64
+      - run: cmake --build build-windows-tests --config Release
+      - run: ctest --test-dir build-windows-tests -C Release --output-on-failure

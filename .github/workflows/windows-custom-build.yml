@@ -1,0 +1,50 @@
+name: Custom Konsole Windows EXE
+on:
+  push:
+    branches: [master, windows-port]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Bootstrap KDE Craft
+        run: |
+          Invoke-WebRequest https://raw.githubusercontent.com/KDE/craft/master/setup/CraftBootstrap.py -OutFile "$env:RUNNER_TEMP/CraftBootstrap.py"
+          python "$env:RUNNER_TEMP/CraftBootstrap.py" --prefix C:/CraftRoot --use-defaults
+          if ($LASTEXITCODE -ne 0) { throw 'Craft bootstrap failed.' }
+      - name: Compile patched Konsole, test ConPTY, package EXE
+        run: |
+          . C:/CraftRoot/craft/craftenv.ps1
+          & ./tools/windows/build.ps1
+      - name: Upload custom installer and portable archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: Konsole-Windows-x64-${{ github.sha }}
+          path: dist/custom-windows/*
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload diagnostic logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-diagnostics
+          path: |
+            C:/CraftRoot/build/**/CMakeConfigureLog.yaml
+            C:/CraftRoot/build/**/CMakeError.log
+            C:/CraftRoot/build/**/CMakeOutput.log
+            build-windows-backend/Testing/Temporary/LastTest.log
+            dist/custom-windows/*.xml
+          if-no-files-found: ignore
