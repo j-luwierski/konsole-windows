@@ -10,6 +10,7 @@
 #include <QMutex>
 #include <QThread>
 #include <QTimer>
+#include <atomic>
 #include <process.h>
 #include <stdio.h>
 #include <windows.h>
@@ -24,26 +25,20 @@ typedef VOID *HPCON;
 #define TOO_OLD_WINSDK 0
 #endif
 
-template<typename T>
-std::vector<T> vectorFromString(const std::basic_string<T> &str)
-{
-    return std::vector<T>(str.begin(), str.end());
-}
-
 // ConPTY available only on Windows 10 releazed after 1903 (19H1) Windows
 // release
 class WindowsContext
 {
 public:
-    typedef HRESULT (*CreatePseudoConsolePtr)(COORD size, // ConPty Dimensions
+    typedef HRESULT (WINAPI *CreatePseudoConsolePtr)(COORD size, // ConPty Dimensions
                                               HANDLE hInput, // ConPty Input
                                               HANDLE hOutput, // ConPty Output
                                               DWORD dwFlags, // ConPty Flags
                                               HPCON *phPC); // ConPty Reference
 
-    typedef HRESULT (*ResizePseudoConsolePtr)(HPCON hPC, COORD size);
+    typedef HRESULT (WINAPI *ResizePseudoConsolePtr)(HPCON hPC, COORD size);
 
-    typedef VOID (*ClosePseudoConsolePtr)(HPCON hPC);
+    typedef VOID (WINAPI *ClosePseudoConsolePtr)(HPCON hPC);
 
     WindowsContext()
         : createPseudoConsole(nullptr)
@@ -55,12 +50,12 @@ public:
     bool init()
     {
         // already initialized
-        if (createPseudoConsole)
+        if (createPseudoConsole && resizePseudoConsole && closePseudoConsole)
             return true;
 
         // try to load symbols from library
         // if it fails -> we can't use ConPty API
-        HANDLE kernel32Handle = LoadLibraryExW(L"kernel32.dll", 0, 0);
+        HMODULE kernel32Handle = GetModuleHandleW(L"kernel32.dll");
 
         if (kernel32Handle != nullptr) {
             createPseudoConsole = (CreatePseudoConsolePtr)GetProcAddress((HMODULE)kernel32Handle, "CreatePseudoConsole");
@@ -165,6 +160,9 @@ private:
     initializeStartupInfoAttachedToPseudoConsole(STARTUPINFOEX *pStartupInfo, HPCON hPC);
 
 private:
+    void finishIfExited();
+
+    bool m_exitNotified = false;
     WindowsContext m_winContext;
     HPCON m_ptyHandler;
     HANDLE m_hPipeIn, m_hPipeOut;
@@ -175,7 +173,8 @@ private:
 
     bool m_aboutToDestruct{false};
     PROCESS_INFORMATION m_shellProcessInformation{};
-    HANDLE m_shellCloseWaitHandle{INVALID_HANDLE_VALUE};
+    QTimer m_exitPoll;
+    std::atomic<DWORD> m_readerThreadId{0};
     STARTUPINFOEX m_shellStartupInfo{};
 };
 

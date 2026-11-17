@@ -8,7 +8,11 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QMutexLocker>
-#include <sstream>
+#include <QDir>
+#include <QProcessEnvironment>
+#include <QStandardPaths>
+
+#include "windowsprocessutils.h"
 
 #define READ_INTERVAL_MSEC 500
 
@@ -18,20 +22,16 @@ HRESULT ConPtyProcess::createPseudoConsoleAndPipes(HPCON *phPC, HANDLE *phPipeIn
     HANDLE hPipePTYIn{INVALID_HANDLE_VALUE};
     HANDLE hPipePTYOut{INVALID_HANDLE_VALUE};
 
-    // Create the pipes to which the ConPTY will connect
-    if (CreatePipe(&hPipePTYIn, phPipeOut, NULL, 0) && CreatePipe(phPipeIn, &hPipePTYOut, NULL, 0)) {
-        // Create the Pseudo Console of the required size, attached to the PTY-end
-        // of the pipes
-        hr = m_winContext.createPseudoConsole({cols, rows}, hPipePTYIn, hPipePTYOut, 0, phPC);
-
-        // Note: We can close the handles to the PTY-end of the pipes here
-        // because the handles are dup'ed into the ConHost and will be released
-        // when the ConPTY is destroyed.
-        if (INVALID_HANDLE_VALUE != hPipePTYOut)
-            CloseHandle(hPipePTYOut);
-        if (INVALID_HANDLE_VALUE != hPipePTYIn)
-            CloseHandle(hPipePTYIn);
+    if (!CreatePipe(&hPipePTYIn, phPipeOut, nullptr, 0)) {
+        return HRESULT_FROM_WIN32(GetLastError());
     }
+    if (!CreatePipe(phPipeIn, &hPipePTYOut, nullptr, 0)) {
+        hr = HRESULT_FROM_WIN32(GetLastError());
+    } else {
+        hr = m_winContext.createPseudoConsole({cols, rows}, hPipePTYIn, hPipePTYOut, 0, phPC);
+        CloseHandle(hPipePTYOut);
+    }
+    CloseHandle(hPipePTYIn);
 
     return hr;
 }
@@ -44,11 +44,6 @@ HRESULT ConPtyProcess::initializeStartupInfoAttachedToPseudoConsole(STARTUPINFOE
 
     if (pStartupInfo) {
         SIZE_T attrListSize{};
-
-        pStartupInfo->StartupInfo.hStdInput = m_hPipeIn;
-        pStartupInfo->StartupInfo.hStdError = m_hPipeOut;
-        pStartupInfo->StartupInfo.hStdOutput = m_hPipeOut;
-        pStartupInfo->StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
 
         pStartupInfo->StartupInfo.cb = sizeof(STARTUPINFOEX);
 
@@ -66,6 +61,10 @@ HRESULT ConPtyProcess::initializeStartupInfoAttachedToPseudoConsole(STARTUPINFOE
                 : HRESULT_FROM_WIN32(GetLastError());
         } else {
             hr = HRESULT_FROM_WIN32(GetLastError());
+            if (pStartupInfo->lpAttributeList) {
+                HeapFree(GetProcessHeap(), 0, pStartupInfo->lpAttributeList);
+                pStartupInfo->lpAttributeList = nullptr;
+            }
         }
     }
     return hr;
@@ -101,29 +100,23 @@ bool ConPtyProcess::startProcess(const QString &shellPath,
     if (m_ptyHandler != INVALID_HANDLE_VALUE)
         return false;
 
-    QFileInfo fi(shellPath);
-    if (fi.isRelative() || !QFile::exists(shellPath)) {
-        // todo add auto-find executable in PATH env var
-        m_lastError = QStringLiteral("ConPty Error: shell file path must be absolute");
+    m_shellPath = QStandardPaths::findExecutable(shellPath);
+    if (m_shellPath.isEmpty()) {
+        m_lastError = QStringLiteral("ConPTY: executable not found: %1").arg(shellPath);
         return false;
     }
-
-    m_shellPath = shellPath;
-    m_size = std::pair<qint16, qint16>(cols, rows);
-
-    // env
-    std::wstringstream envBlock;
-    for (const QString &line : std::as_const(environment)) {
-        envBlock << line.toStdWString() << '\0';
+    if (cols <= 0 || rows <= 0) {
+        m_lastError = QStringLiteral("ConPTY: terminal dimensions must be positive");
+        return false;
     }
-    envBlock << '\0';
-    std::wstring env = envBlock.str();
-    auto envV = vectorFromString(env);
-    LPWSTR envArg = envV.empty() ? nullptr : envV.data();
-
-    QStringList exeAndArgs = arguments;
-    exeAndArgs.prepend(m_shellPath);
-    auto cmdArg = exeAndArgs.join(QLatin1String(" ")).toStdWString();
+    m_size = {cols, rows};
+    m_aboutToDestruct = false;
+    m_exitCode = -1;
+    m_exitNotified = false;
+    auto env = WindowsProcessUtils::environmentBlock(environment);
+    auto cmdArg = WindowsProcessUtils::commandLine(m_shellPath, arguments).toStdWString();
+    const auto nativeProgram = QDir::toNativeSeparators(m_shellPath).toStdWString();
+    const auto nativeDirectory = QDir::toNativeSeparators(workingDir).toStdWString();
 
     HRESULT hr{E_UNEXPECTED};
 
@@ -131,56 +124,42 @@ bool ConPtyProcess::startProcess(const QString &shellPath,
     hr = createPseudoConsoleAndPipes(&m_ptyHandler, &m_hPipeIn, &m_hPipeOut, cols, rows);
 
     if (S_OK != hr) {
-        m_lastError = QStringLiteral("ConPty Error: CreatePseudoConsoleAndPipes fail");
+        m_lastError = QStringLiteral("ConPTY: creating console failed: %1").arg(quint32(hr));
+        kill();
         return false;
     }
 
     // Initialize the necessary startup info struct
     if (S_OK != initializeStartupInfoAttachedToPseudoConsole(&m_shellStartupInfo, m_ptyHandler)) {
-        m_lastError = QStringLiteral("ConPty Error: InitializeStartupInfoAttachedToPseudoConsole fail");
+        m_lastError = QStringLiteral("ConPTY: initializing process attributes failed: %1").arg(GetLastError());
+        kill();
         return false;
     }
 
     // Launch ping to Q_EMIT some text back via the pipe
-    hr = CreateProcess(NULL, // No module name - use Command Line
+    hr = CreateProcessW(nativeProgram.c_str(), // Explicit executable avoids ambiguous paths
                        cmdArg.data(), // Command Line
                        NULL, // Process handle not inheritable
                        NULL, // Thread handle not inheritable
                        FALSE, // Inherit handles
                        EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT, // Creation flags
-                       envArg, // Environment block
-                       workingDir.toStdWString().data(), // Use parent's starting directory
+                       env.data(), // Inherited environment plus profile overrides
+                       workingDir.isEmpty() ? nullptr : nativeDirectory.c_str(),
                        &m_shellStartupInfo.StartupInfo, // Pointer to STARTUPINFO
                        &m_shellProcessInformation) // Pointer to PROCESS_INFORMATION
         ? S_OK
         : GetLastError();
 
     if (hr != S_OK) {
-        m_lastError = QStringLiteral("ConPty Error: Cannot create process -> %1").arg(hr);
+        m_lastError = QStringLiteral("ConPTY: cannot create process: %1").arg(hr);
+        kill();
         return false;
     }
     m_pid = m_shellProcessInformation.dwProcessId;
 
-    // Notify when the shell process has been terminated
-    RegisterWaitForSingleObject(
-        &m_shellCloseWaitHandle,
-        m_shellProcessInformation.hProcess,
-        [](PVOID data, BOOLEAN) {
-            auto self = static_cast<ConPtyProcess *>(data);
-            DWORD exitCode = 0;
-            GetExitCodeProcess(self->m_shellProcessInformation.hProcess, &exitCode);
-            self->m_exitCode = exitCode;
-            // Do not respawn if the object is about to be destructed
-            if (!self->m_aboutToDestruct)
-                Q_EMIT self->notifier()->aboutToClose();
-            Q_EMIT self->exited();
-        },
-        this,
-        INFINITE,
-        WT_EXECUTEONLYONCE);
-
     // this code runned in separate thread
     m_readThread = QThread::create([this]() {
+        m_readerThreadId = GetCurrentThreadId();
         // buffers
         const DWORD BUFF_SIZE{1024};
         char szBuffer[BUFF_SIZE]{};
@@ -188,31 +167,72 @@ bool ConPtyProcess::startProcess(const QString &shellPath,
         while (true) {
             DWORD dwBytesRead{};
 
+            if (QThread::currentThread()->isInterruptionRequested()) {
+                break;
+            }
             // Read from the pipe
             BOOL result = ReadFile(m_hPipeIn, szBuffer, BUFF_SIZE, &dwBytesRead, NULL);
 
-            const bool needMoreData = !result && GetLastError() == ERROR_MORE_DATA;
-            if (result || needMoreData) {
+            if (!result || dwBytesRead == 0) {
+                break;
+            }
+            {
                 QMutexLocker locker(&m_bufferMutex);
                 m_buffer.m_readBuffer.append(szBuffer, dwBytesRead);
-                m_buffer.emitReadyRead();
             }
-
-            const bool brokenPipe = !result && GetLastError() == ERROR_BROKEN_PIPE;
-            if (QThread::currentThread()->isInterruptionRequested() || brokenPipe)
-                break;
+            m_buffer.emitReadyRead();
         }
     });
 
+    connect(m_readThread, &QThread::finished, this, [this]() {
+        if (m_aboutToDestruct) {
+            return;
+        }
+        finishIfExited();
+    });
+    connect(&m_exitPoll, &QTimer::timeout, this, [this]() {
+        DWORD code = 0;
+        if (GetExitCodeProcess(m_shellProcessInformation.hProcess, &code) && code != STILL_ACTIVE) {
+            m_exitPoll.stop();
+            m_exitCode = int(code);
+            // Closing ConPTY releases the output pipe; the reader delivers the
+            // remaining bytes and emits exited only after it has drained them.
+            if (m_ptyHandler != INVALID_HANDLE_VALUE && m_ptyHandler != nullptr) {
+                m_winContext.closePseudoConsole(m_ptyHandler);
+                m_ptyHandler = INVALID_HANDLE_VALUE;
+            }
+            finishIfExited();
+        }
+    });
+    m_exitPoll.setInterval(20);
     // start read thread
     m_readThread->start();
+    m_exitPoll.start();
 
     return true;
 }
 
+void ConPtyProcess::finishIfExited()
+{
+    if (m_aboutToDestruct || m_exitNotified || !m_readThread || m_readThread->isRunning()) {
+        return;
+    }
+    DWORD code = 0;
+    if (!GetExitCodeProcess(m_shellProcessInformation.hProcess, &code) || code == STILL_ACTIVE) {
+        return;
+    }
+    m_exitNotified = true;
+    m_exitPoll.stop();
+    m_exitCode = int(code);
+    m_pid = 0;
+    // Session must receive all trailing output before handling finished().
+    Q_EMIT m_buffer.readyRead();
+    Q_EMIT exited();
+}
+
 bool ConPtyProcess::resize(qint16 cols, qint16 rows)
 {
-    if (m_ptyHandler == nullptr) {
+    if (m_ptyHandler == INVALID_HANDLE_VALUE || m_ptyHandler == nullptr || cols <= 0 || rows <= 0) {
         return false;
     }
 
@@ -227,45 +247,41 @@ bool ConPtyProcess::resize(qint16 cols, qint16 rows)
 
 bool ConPtyProcess::kill()
 {
-    bool exitCode = false;
-
-    if (m_ptyHandler != INVALID_HANDLE_VALUE) {
-        m_aboutToDestruct = true;
-
-        // Close ConPTY - this will terminate client process if running
+    m_aboutToDestruct = true;
+    m_exitPoll.stop();
+    disconnect(&m_exitPoll, nullptr, this, nullptr);
+    const bool hadConsole = m_ptyHandler != INVALID_HANDLE_VALUE && m_ptyHandler != nullptr;
+    if (hadConsole) {
+        // Keep the reader alive while ClosePseudoConsole drains its output.
         m_winContext.closePseudoConsole(m_ptyHandler);
-
-        // Clean-up the pipes
-        if (INVALID_HANDLE_VALUE != m_hPipeOut)
-            CloseHandle(m_hPipeOut);
-        if (INVALID_HANDLE_VALUE != m_hPipeIn)
-            CloseHandle(m_hPipeIn);
-
-        m_readThread->requestInterruption();
-        if (!m_readThread->wait(1000))
-            m_readThread->terminate();
-        m_readThread->deleteLater();
-        m_readThread = nullptr;
-
-        m_pid = 0;
         m_ptyHandler = INVALID_HANDLE_VALUE;
-        m_hPipeIn = INVALID_HANDLE_VALUE;
-        m_hPipeOut = INVALID_HANDLE_VALUE;
-
-        CloseHandle(m_shellProcessInformation.hThread);
-        CloseHandle(m_shellProcessInformation.hProcess);
-        UnregisterWait(m_shellCloseWaitHandle);
-
-        // Cleanup attribute list
-        if (m_shellStartupInfo.lpAttributeList) {
-            DeleteProcThreadAttributeList(m_shellStartupInfo.lpAttributeList);
-            HeapFree(GetProcessHeap(), 0, m_shellStartupInfo.lpAttributeList);
-        }
-
-        exitCode = true;
     }
-
-    return exitCode;
+    if (m_readThread) {
+        disconnect(m_readThread, nullptr, this, nullptr);
+        m_readThread->requestInterruption();
+        // ReadFile is synchronous; cancellation wakes it without terminating a Qt thread.
+        HANDLE thread = OpenThread(THREAD_TERMINATE, FALSE, m_readerThreadId);
+        if (thread) {
+            CancelSynchronousIo(thread);
+            CloseHandle(thread);
+        }
+        m_readThread->wait();
+        delete m_readThread;
+        m_readThread = nullptr;
+    }
+    for (HANDLE *handle : {&m_hPipeIn, &m_hPipeOut, &m_shellProcessInformation.hThread, &m_shellProcessInformation.hProcess}) {
+        if (*handle && *handle != INVALID_HANDLE_VALUE) {
+            CloseHandle(*handle);
+        }
+        *handle = INVALID_HANDLE_VALUE;
+    }
+    if (m_shellStartupInfo.lpAttributeList) {
+        DeleteProcThreadAttributeList(m_shellStartupInfo.lpAttributeList);
+        HeapFree(GetProcessHeap(), 0, m_shellStartupInfo.lpAttributeList);
+        m_shellStartupInfo = {};
+    }
+    m_pid = 0;
+    return hadConsole;
 }
 
 IPtyProcess::PtyType ConPtyProcess::type()
@@ -300,7 +316,13 @@ QByteArray ConPtyProcess::readAll()
 qint64 ConPtyProcess::write(const char *data, int size)
 {
     DWORD dwBytesWritten{};
-    WriteFile(m_hPipeOut, data, size, &dwBytesWritten, NULL);
+    if (size <= 0 || m_hPipeOut == INVALID_HANDLE_VALUE) {
+        return 0;
+    }
+    if (!WriteFile(m_hPipeOut, data, DWORD(size), &dwBytesWritten, nullptr)) {
+        m_lastError = QStringLiteral("ConPTY: writing input failed: %1").arg(GetLastError());
+        return -1;
+    }
     return dwBytesWritten;
 }
 
