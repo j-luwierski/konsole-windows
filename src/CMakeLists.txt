@@ -130,6 +130,7 @@ target_sources(konsoleprivate PRIVATE
     filterHotSpots/EscapeSequenceUrlFilterHotSpot.cpp
     filterHotSpots/FileFilter.cpp
     filterHotSpots/FileFilterHotspot.cpp
+    filterHotSpots/TextPreviewContent.cpp
     filterHotSpots/TextFilePreview.cpp
     filterHotSpots/FileMetadata.cpp
     filterHotSpots/Filter.cpp
@@ -425,8 +426,9 @@ if(WIN32)
     target_sources(konsoleapp PRIVATE fileremote/RemoteTabDialog.cpp)
     add_executable(konsole-file-host
         fileremote/hostmain.cpp fileremote/FileRemoteHost.cpp fileremote/FileChannel.cpp
+        filterHotSpots/TextPreviewContent.cpp filterHotSpots/FileMetadata.cpp
         ptyqt/conptyprocess.cpp ptyqt/iptyprocess.cpp)
-    target_link_libraries(konsole-file-host PRIVATE Qt::Core)
+    target_link_libraries(konsole-file-host PRIVATE Qt::Core Qt::Concurrent advapi32)
     target_compile_definitions(konsole-file-host PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
     install(TARGETS konsole-file-host ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
     install(FILES ../tools/windows/Start-RemoteHost.ps1 DESTINATION ${KDE_INSTALL_BINDIR})

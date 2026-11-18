@@ -458,9 +458,9 @@ void MainWindow::setupActions()
         arguments.append(FileRemote::connectionArguments(config));
         profile->setProperty(Profile::Arguments, arguments);
         profile->setProperty(Profile::ContainerName, QString());
-        // Remote paths cannot be interpreted as files on the client computer.
-        profile->setProperty(Profile::UnderlineFilesEnabled, false);
-        profile->setProperty(Profile::AllowEscapedLinks, false);
+        // Remote paths use the authenticated host file service.
+        profile->setProperty(Profile::UnderlineFilesEnabled, true);
+        profile->setProperty(Profile::AllowEscapedLinks, true);
         createSession(profile, QString());
     });
     auto *remoteSettings = collection->addAction(QStringLiteral("configure-file-remote"));
