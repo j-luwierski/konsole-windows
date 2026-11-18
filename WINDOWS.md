@@ -281,11 +281,26 @@ for later reconnection. Maximum packet size is 128 KiB, the queue is bounded to
 reader or flooding command produces a controlled error rather than unlimited
 queued output. Filesystem calls can themselves wait for the OS/storage timeout.
 
-Remote paths are not interpreted as local files: local file previews and file
-context actions are disabled in the default remote profile to avoid showing or
-copying a similarly named file from the client. This transport does not transfer
-files or provide remote file-preview RPC. Ordinary web links can still open in
-the client's browser. This is terminal access, not a transparent remote filesystem.
+Remote file paths, OSC 8 links in `ls`/`dir` and ordinary `file://` links use the
+host file service. Hover for the configured delay to read text and metadata from
+the **remote host**, never from a similarly named file on the client. The popup
+supports scrolling, selection and copying. Right-click offers **Copy Full File
+Path** and **Copy Entire File Contents**. The latter copies the complete decoded
+text without metadata headers. Binary files cannot be copied as text; errors and
+size-limit violations preserve the previous clipboard. There is no silent truncation.
+
+Metadata includes size, creation/modification times, owner, primary group and
+Windows ACL/SDDL from the host. Non-text formats (including images and PDF) show
+the actual host-side `file` output when the fallback option is enabled. File reading
+and identification run off the terminal event loop; large replies are chunked and
+authenticated using the same file-only transport. Text, preview delay, dimensions,
+file information and the 1–256 MiB read limit use the existing preview settings.
+Host file paths must be absolute local paths; UNC/network URLs are not fetched.
+
+**Update and restart both host and client with portable 0.6.0 or later.** Terminal
+sessions can still connect to an older host, but file operations display an upgrade
+message rather than accessing the client filesystem. Stop the previous host before
+replacing the extracted package. Existing local pairing keys can be retained.
 
 ### Authentication and storage
 
@@ -298,7 +313,7 @@ future are rejected). The pairing key must stay outside the exchange folder.
 Anyone with that key and write access to the folder can open a shell as the host
 user; use a private folder with suitable filesystem permissions.
 
-Terminal contents on the exchange disk are **not encrypted**. Readers of that
+Terminal and preview/copy file contents on the exchange disk are **not encrypted**. Readers of that
 folder can read commands/output. Do not place it in a broadly readable folder;
 use volume/share encryption where required. Neither side sends telemetry or
 credentials through a network service. Consumed packets are deleted. Empty session
@@ -306,3 +321,31 @@ folders may remain; after stopping both sides they can be removed. The host keep
 small local replay receipts under its application data directory. Do not delete
 those receipts while running the host. An unclean host shutdown can leave
 `host.lock`; remove it only after confirming the previous host is stopped.
+
+
+## Using the bundled file command
+
+The built-in PowerShell initialization adds the portable `file` folder to **that
+shell's PATH** and sets its `MAGIC` variable to the bundled `magic.mgc`. This applies
+to both local and remote PowerShell sessions, without changing system PATH or
+requiring MSYS2 to be installed. Examples:
+
+```powershell
+file .\image.png
+file --brief -- '.\my files\document.pdf'
+file --mime-type -- .\settings.ini
+file --version
+```
+
+`file` identifies files; it is not the Unix `find` command or Windows `find.exe`.
+The native executable and all its normal options are available. A custom PowerShell
+profile that does not use Konsole's initialization can call the EXE directly:
+
+```powershell
+& 'C:\Tools\Konsole\file\file.exe' --magic-file 'C:\Tools\Konsole\file\magic.mgc' --brief -- '.\image.png'
+```
+
+Interactive file previews now take precedence over the older KIO thumbnail popup,
+so binary file identification is not obscured by a competing image thumbnail.
+Content-based MIME detection rejects formats such as PDF even when their bytes
+are mostly printable text or the filename ends in `.txt`.
