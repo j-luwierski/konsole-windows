@@ -96,6 +96,7 @@ ma domyślnie 250 ms tolerancji, aby okno nie zniknęło po drodze.
 **Ustawienia → Konfiguracja Konsole → Thumbnails / File previews**:
 
 - włączenie / wyłączenie interaktywnego podglądu;
+- osobne włączenie / wyłączenie informacji `file`, gdy tekstu nie da się pokazać;
 - opóźnienie nieruchomego kursora: 100–30000 ms, domyślnie 2000 ms;
 - czas na przejście do podglądu i jego zamknięcie: 100–2000 ms;
 - szerokość i wysokość okna, domyślnie 640×420 px;
@@ -105,7 +106,16 @@ Podgląd nie ucina tekstu do pierwszych wierszy. Plik przekraczający limit
 wyświetla informację o konieczności zwiększenia limitu. Rozpoznawana jest
 zawartość, nie tylko rozszerzenie: np. TXT, INI, CONF, LOG, JSON, kod źródłowy
 i pliki bez rozszerzenia. Obsługiwane są UTF-8, Unicode z BOM (w tym UTF-16)
-i kodowanie systemowe Windows. Pliki binarne są pomijane. Czytanie pliku
+i kodowanie systemowe Windows. Gdy tekstu nie można pokazać (np. plik binarny, nieobsługiwane kodowanie,
+przekroczony limit), domyślnie pojawia się informacja o pliku: wynik
+**`file --brief`**, nazwa, rozmiar i MIME. Można ją wyłączyć osobnym
+przełącznikiem **Show file identification when text preview is unavailable**.
+Portable zawiera natywne **file 5.48**, bazę `magic.mgc` i wszystkie wymagane
+biblioteki w katalogu `file`; instalacja MSYS2 ani programu file nie jest
+potrzebna. Oryginalne licencje i kompletne archiwa źródeł komponentów są w
+`file/licenses` i `file/sources`, a pochodzenie i sumy opisuje
+`file-runtime.json`. Identyfikacja działa w tle, ma limit czasu 5 sekund
+i nie uruchamia badanego pliku. Czytanie pliku
 odbywa się w tle, a podgląd jest tylko do odczytu.
 
 W profilu włącz **Mysz → Różne → Podkreślaj pliki**. Wbudowany profil Windows
