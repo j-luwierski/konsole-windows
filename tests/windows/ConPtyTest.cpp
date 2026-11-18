@@ -41,6 +41,11 @@ private Q_SLOTS:
         const auto windowsPowerShell = QStandardPaths::findExecutable(QStringLiteral("powershell.exe"));
         QVERIFY2(!windowsPowerShell.isEmpty(), "Windows PowerShell must be available for the default profile");
         QTest::newRow("WindowsPowerShell") << windowsPowerShell;
+        const auto bundled = qEnvironmentVariable("KONSOLE_TEST_BUNDLED_PWSH");
+        if (!bundled.isEmpty()) {
+            QVERIFY(QFileInfo::exists(bundled));
+            QTest::newRow("BundledPowerShell7") << bundled;
+        }
         const auto pwsh = QStandardPaths::findExecutable(QStringLiteral("pwsh.exe"));
         if (!pwsh.isEmpty()) {
             QTest::newRow("PowerShell7") << pwsh;
@@ -55,6 +60,8 @@ private Q_SLOTS:
         const auto script = WindowsShellIntegration::initializationScript() + QStringLiteral(R"PS(
 if ((Get-PSReadLineKeyHandler -Chord Tab).Function -ne 'Complete') { throw 'Tab binding not initialized' }
 if ((Get-PSReadLineKeyHandler -Chord Ctrl+r).Function -ne 'ReverseSearchHistory') { throw 'Ctrl+R binding not initialized' }
+$expectedReadLine = Join-Path $PSHOME 'Modules/PSReadLine'
+if ((Get-Module PSReadLine).ModuleBase -ne $expectedReadLine) { throw 'PSReadLine not loaded from shell distribution' }
 Write-Output 'konsole-readline-ready'
 )PS");
         QVERIFY2(process.startProcess(shell, WindowsShellIntegration::arguments(script), {}, {}, 120, 40), qPrintable(process.lastError()));

@@ -28,6 +28,24 @@ private Q_SLOTS:
         QVERIFY(decoded.contains(QStringLiteral("-Chord Tab -Function Complete")));
         QVERIFY(decoded.contains(QStringLiteral("-Chord Ctrl+r -Function ReverseSearchHistory")));
     }
+    void relocatedPortableShell()
+    {
+        QTemporaryDir portable;
+        QVERIFY(portable.isValid());
+        QDir root(portable.path());
+        QVERIFY(root.mkpath(QStringLiteral("bin")));
+        QVERIFY(root.mkpath(QStringLiteral("powershell/Modules/PSReadLine")));
+        const auto bin = root.filePath(QStringLiteral("bin"));
+        QVERIFY(WindowsShellIntegration::bundledPowerShell(bin).isEmpty());
+        QFile executable(root.filePath(QStringLiteral("powershell/pwsh.exe")));
+        QVERIFY(executable.open(QIODevice::WriteOnly));
+        executable.close();
+        QVERIFY(WindowsShellIntegration::bundledPowerShell(bin).isEmpty());
+        QFile module(root.filePath(QStringLiteral("powershell/Modules/PSReadLine/PSReadLine.psd1")));
+        QVERIFY(module.open(QIODevice::WriteOnly));
+        module.close();
+        QCOMPARE(QDir::fromNativeSeparators(WindowsShellIntegration::bundledPowerShell(bin)), executable.fileName());
+    }
     void environment()
     {
         qputenv("KONSOLE_TEST_INHERITED", "parent");
