@@ -194,3 +194,115 @@ weryfikacji na komputerze użytkownika.
 Funkcje zależne od Unix (sygnały POSIX, termios, utmp, /proc), integracja
 X11/Wayland oraz usługi D-Bus nie mają pełnej zgodności z Windows. Samo
 zbudowanie interfejsu nie oznacza przeniesienia tych funkcji.
+
+## Remote tabs through a shared folder (Windows)
+
+**File → New Remote Tab** opens a PowerShell terminal on another Windows host
+using only files. **Settings → Configure Remote Tabs…** saves the client-side
+exchange path, host ID, polling interval and connection/heartbeat timeout. The
+connection dialog also allows changing these values for the next tab. The pairing
+key is remembered in memory until Konsole exits, not in ordinary settings.
+
+No SSH server, sockets, TCP listener, Internet access or network discovery is
+used. Each side needs an already accessible view of the same filesystem folder,
+with read, write **and delete** permission. The path can differ on the two machines,
+for example `X:\TerminalExchange` and `D:\Shared\TerminalExchange`. A shared local
+volume, mounted disk or existing share can supply that folder. Konsole does not
+create a network connection or provide the underlying storage. This is not a
+OneDrive-style asynchronous sync protocol: atomic rename and coherent visibility
+of files are required. Do not use independent copies or conflict-producing sync.
+
+### Start the remote side
+
+Copy and extract the **whole portable package** on the remote Windows x64 host.
+Run the following in PowerShell as the account whose shell you want to use:
+
+```powershell
+& 'C:\Tools\Konsole\bin\Start-RemoteHost.ps1' -ExchangePath 'D:\Shared\TerminalExchange' -HostId 'host1'
+```
+
+The script starts the foreground `konsole-file-host.exe`; keep its window open.
+It creates a local pairing key under `%LOCALAPPDATA%\KonsoleFileRemote\pairing.key`
+on first use and displays the key. Enter that **64-character key** on the client,
+select the client's path to the same exchange folder, use the same host ID and
+click **Connect**. Each new remote tab creates its own shell, running as the user
+who started the host. Ctrl+C in the **host's launcher window** stops the listener
+and its active shells. Ctrl+C in the **remote tab** interrupts the remote command.
+No service, scheduled task, administrator privilege or automatic startup is added.
+
+For environments restricting script execution, the EXE can be run directly,
+without changing the machine's PowerShell policy:
+
+```powershell
+# Create a key in a PRIVATE LOCAL folder, once:
+& '.\bin\konsole-file-host.exe' --generate-key 'C:\Users\me\pairing.key'
+# Start the host (the parent exchange folder must already exist):
+& '.\bin\konsole-file-host.exe' --root 'D:\Shared\TerminalExchange' --host host1 --key-file 'C:\Users\me\pairing.key'
+```
+
+Keep `bin`, `powershell`, the Qt DLLs and the launcher together. A bare EXE copied
+without its libraries is not sufficient. PowerShell 7 and PSReadLine come from the
+portable package. The remote machine must support ConPTY (Windows 10 1903+ / 11).
+
+| Option | Client | Host launcher |
+| --- | --- | --- |
+| Local view of exchange folder | Exchange folder | `-ExchangePath` (required) |
+| Target host ID | Host ID | `-HostId`, default `host1` |
+| Authentication | Pairing key | `-KeyFile`, private local key file |
+| Poll interval | 20–5000 ms, default 50 ms | `-PollMilliseconds`, same range/default |
+| Heartbeat timeout | 5–600 s, default 30 s | `-TimeoutSeconds`, same range/default |
+| Maximum active shells | — | `-MaximumSessions`, 1–16, default 4 |
+| Initial remote directory | — | `-WorkingDirectory`, default remote home |
+| PowerShell executable | — | `-PowerShellPath`, defaults to bundled PowerShell |
+
+The client does not choose an arbitrary executable or forward its local environment;
+the host determines shell, account, environment and initial working directory.
+Different hosts can use different IDs and pairing keys in the same root folder.
+Use the same polling/timeout values on both sides for predictable behavior.
+
+### Terminal behavior and limits
+
+The host uses a real ConPTY console, not one-shot command execution or text-log
+scraping. The transport preserves input bytes, ANSI/VT output, UTF-8 text,
+terminal-size changes and shell exit status. **Ctrl+C**, Tab, Ctrl+R, arrows,
+interactive command-line programs and child processes use the remote console.
+Konsole's local Ctrl+Shift+C/V, selection clipboard, tabs and scrollback work on
+the displayed remote terminal. GUI programs execute on the remote desktop; this
+is not desktop streaming. SSH/WSL or terminal applications launched inside the
+remote shell may have their own key bindings, as in a local shell.
+
+The speed depends on storage latency plus polling intervals; high-latency disks
+cannot behave as quickly as a local terminal. Loss of heartbeats closes the tab's
+transport and causes the host to stop the abandoned shell after its configured
+timeout. Closing the tab requests closure of its remote console. There is no
+session reattachment/replay after disconnect, and session state is not preserved
+for later reconnection. Maximum packet size is 128 KiB, the queue is bounded to
+1024 files per session, and pending host output is bounded to 16 MiB; a stalled
+reader or flooding command produces a controlled error rather than unlimited
+queued output. Filesystem calls can themselves wait for the OS/storage timeout.
+
+Remote paths are not interpreted as local files: local file previews and file
+context actions are disabled in the default remote profile to avoid showing or
+copying a similarly named file from the client. This transport does not transfer
+files or provide remote file-preview RPC. Ordinary web links can still open in
+the client's browser. This is terminal access, not a transparent remote filesystem.
+
+### Authentication and storage
+
+Messages are versioned, sequenced, HMAC-SHA256 authenticated and committed with an
+atomic file rename. Each tab gets a random session ID. The host accepts only
+recent signed requests, records consumed request IDs on its **local disk** to
+prevent replay after restart, and never executes an unsigned request. Keep clocks
+reasonably aligned (requests older than two minutes or over 30 seconds in the
+future are rejected). The pairing key must stay outside the exchange folder.
+Anyone with that key and write access to the folder can open a shell as the host
+user; use a private folder with suitable filesystem permissions.
+
+Terminal contents on the exchange disk are **not encrypted**. Readers of that
+folder can read commands/output. Do not place it in a broadly readable folder;
+use volume/share encryption where required. Neither side sends telemetry or
+credentials through a network service. Consumed packets are deleted. Empty session
+folders may remain; after stopping both sides they can be removed. The host keeps
+small local replay receipts under its application data directory. Do not delete
+those receipts while running the host. An unclean host shutdown can leave
+`host.lock`; remove it only after confirming the previous host is stopped.
