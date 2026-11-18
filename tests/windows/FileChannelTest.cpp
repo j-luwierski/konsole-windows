@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "../../src/fileremote/FileChannel.h"
 #include "../../src/fileremote/FileRemoteProcess.h"
+#include "../../src/fileremote/FileRemoteConfig.h"
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -58,11 +59,15 @@ private Q_SLOTS:
         QVERIFY(QDir(root.path()).mkpath(QStringLiteral("host1/sessions")));
         const auto key = Channel::generateKey();
         const auto config = QJsonDocument(QJsonObject{{QStringLiteral("root"), root.path()}, {QStringLiteral("host"), QStringLiteral("host1")},
-            {QStringLiteral("key"), QString::fromLatin1(key.toHex())}, {QStringLiteral("poll"), 20}}).toJson(QJsonDocument::Compact).toBase64();
+            {QStringLiteral("key"), QString::fromLatin1(key.toHex())}, {QStringLiteral("poll"), 20}}).toJson(QJsonDocument::Compact);
+        const QStringList arguments = connectionArguments(config);
+        QVERIFY(!arguments.join(QLatin1Char(' ')).contains(QString::fromLatin1(key.toHex())));
+        QVERIFY(!arguments.join(QLatin1Char(' ')).contains(QString::fromLatin1(config.toBase64())));
+        QCOMPARE(connectionSnapshot(arguments.last()), config);
         Process client; QByteArray output;
         connect(client.notifier(), &QIODevice::readyRead, this, [&] { output += client.readAll(); });
         QSignalSpy exited(&client, &IPtyProcess::exited);
-        QVERIFY(client.startProcess({}, {QStringLiteral("--konsole-file-remote"), QString::fromLatin1(config)}, {}, {}, 80, 24));
+        QVERIFY(client.startProcess({}, arguments, {}, {}, 80, 24));
         const QDir sessions(root.filePath(QStringLiteral("host1/sessions")));
         const auto names = sessions.entryList(QDir::Dirs | QDir::NoDotAndDotDot); QCOMPARE(names.size(), 1);
         const QString directory = sessions.filePath(names.first());
@@ -85,9 +90,9 @@ private Q_SLOTS:
     {
         QTemporaryDir root;
         const auto config = QJsonDocument(QJsonObject{{QStringLiteral("root"), root.path()}, {QStringLiteral("host"), QStringLiteral("host1")},
-            {QStringLiteral("key"), QString::fromLatin1(Channel::generateKey().toHex())}}).toJson().toBase64();
+            {QStringLiteral("key"), QString::fromLatin1(Channel::generateKey().toHex())}}).toJson();
         Process client;
-        QVERIFY(!client.startProcess({}, {QStringLiteral("--konsole-file-remote"), QString::fromLatin1(config)}, {}, {}, 80, 24));
+        QVERIFY(!client.startProcess({}, connectionArguments(config), {}, {}, 80, 24));
         QCOMPARE(client.pid(), 0); QVERIFY(!client.lastError().isEmpty());
     }
 };

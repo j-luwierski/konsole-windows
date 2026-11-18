@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "../../src/fileremote/FileRemoteHost.h"
 #include "../../src/fileremote/FileRemoteProcess.h"
+#include "../../src/fileremote/FileRemoteConfig.h"
 #include "../../src/ptyqt/windowsshellintegration.h"
 #include <QDir>
 #include <QDateTime>
@@ -59,10 +60,10 @@ private Q_SLOTS:
         Host host(options); QString error; QVERIFY2(host.start(error), qPrintable(error));
         Host duplicate(options); QVERIFY(!duplicate.start(error));
         const QByteArray config = QJsonDocument(QJsonObject{{QStringLiteral("root"), root.path()}, {QStringLiteral("host"), options.host},
-            {QStringLiteral("key"), QString::fromLatin1(options.key.toHex())}, {QStringLiteral("poll"), 20}}).toJson().toBase64();
+            {QStringLiteral("key"), QString::fromLatin1(options.key.toHex())}, {QStringLiteral("poll"), 20}}).toJson();
         Process client; QByteArray output;
         connect(client.notifier(), &QIODevice::readyRead, this, [&] { output += client.readAll(); });
-        QVERIFY2(client.startProcess({}, {QStringLiteral("--konsole-file-remote"), QString::fromLatin1(config)}, {}, {}, 120, 40), qPrintable(client.lastError()));
+        QVERIFY2(client.startProcess({}, connectionArguments(config), {}, {}, 120, 40), qPrintable(client.lastError()));
         QTRY_VERIFY2_WITH_TIMEOUT(output.contains("FILE-REMOTE-READY"), output.constData(), 25000);
         const auto send = [&](const QByteArray &input) { return client.write(input.constData(), int(input.size())) == input.size(); };
         QVERIFY(send(QByteArray("Write-Out\t ('FILE-REMOTE-'+'COMPLETED')\r")));
@@ -127,9 +128,9 @@ private Q_SLOTS:
         Host host(options); QString error; QVERIFY(host.start(error));
         const auto config = QJsonDocument(QJsonObject{{QStringLiteral("root"), root.path()}, {QStringLiteral("host"), options.host},
             {QStringLiteral("key"), QString::fromLatin1(Channel::generateKey().toHex())}, {QStringLiteral("timeout"), 5000},
-            {QStringLiteral("poll"), 20}}).toJson().toBase64();
+            {QStringLiteral("poll"), 20}}).toJson();
         Process client; QSignalSpy exited(&client, &IPtyProcess::exited);
-        QVERIFY(client.startProcess({}, {QStringLiteral("--konsole-file-remote"), QString::fromLatin1(config)}, {}, {}, 80, 24));
+        QVERIFY(client.startProcess({}, connectionArguments(config), {}, {}, 80, 24));
         QTRY_COMPARE_WITH_TIMEOUT(exited.count(), 1, 8000);
         QVERIFY(!QFileInfo::exists(cwd.filePath(QStringLiteral("marker.txt"))));
         QCOMPARE(QDir(ledger.path()).entryList(QDir::Files).size(), 0);
