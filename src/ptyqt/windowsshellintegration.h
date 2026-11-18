@@ -44,6 +44,17 @@ try {
 [Console]::InputEncoding = New-Object System.Text.UTF8Encoding $false
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
 $OutputEncoding = [Console]::OutputEncoding
+# Report the real directory after cd so relative file paths resolve correctly.
+$global:KonsoleOriginalPrompt = $function:prompt
+function global:prompt {
+    try {
+        if ($PWD.Provider.Name -eq 'FileSystem') {
+            $konsoleDirectory = [Uri]::new($PWD.ProviderPath)
+            [Console]::Write(([char]27 + ']7;' + $konsoleDirectory.AbsoluteUri + [char]7))
+        }
+    } catch {}
+    if ($global:KonsoleOriginalPrompt) { & $global:KonsoleOriginalPrompt } else { 'PS> ' }
+}
 )PS");
 }
 
