@@ -15,6 +15,7 @@
 #include <QTemporaryDir>
 #include <QtTest>
 using namespace Konsole::FileRemote;
+using Konsole::TextPreviewContent;
 class FileRemoteHostTest : public QObject {
     Q_OBJECT
 private Q_SLOTS:
@@ -55,15 +56,17 @@ private Q_SLOTS:
         HostOptions options; options.root = root.path(); options.host = QStringLiteral("host1");
         options.key = Channel::generateKey(); options.shell = shell; options.workingDirectory = cwd.path();
         options.ledgerDirectory = ledger.path(); options.pollMs = 20;
+        options.fileExecutable = qEnvironmentVariable("KONSOLE_TEST_FILE_EXE");
         options.arguments = WindowsShellIntegration::arguments(WindowsShellIntegration::initializationScript()
             + QStringLiteral("\nWrite-Output ('FILE-REMOTE-'+'READY')\n"));
         Host host(options); QString error; QVERIFY2(host.start(error), qPrintable(error));
         Host duplicate(options); QVERIFY(!duplicate.start(error));
         const QByteArray config = QJsonDocument(QJsonObject{{QStringLiteral("root"), root.path()}, {QStringLiteral("host"), options.host},
             {QStringLiteral("key"), QString::fromLatin1(options.key.toHex())}, {QStringLiteral("poll"), 20}}).toJson();
+        const QStringList connectionArgumentsForTest = connectionArguments(config);
         Process client; QByteArray output;
         connect(client.notifier(), &QIODevice::readyRead, this, [&] { output += client.readAll(); });
-        QVERIFY2(client.startProcess({}, connectionArguments(config), {}, {}, 120, 40), qPrintable(client.lastError()));
+        QVERIFY2(client.startProcess({}, connectionArgumentsForTest, {}, {}, 120, 40), qPrintable(client.lastError()));
         QTRY_VERIFY2_WITH_TIMEOUT(output.contains("FILE-REMOTE-READY"), output.constData(), 25000);
         const auto send = [&](const QByteArray &input) { return client.write(input.constData(), int(input.size())) == input.size(); };
         QVERIFY(send(QByteArray("Write-Out\t ('FILE-REMOTE-'+'COMPLETED')\r")));
@@ -84,6 +87,42 @@ private Q_SLOTS:
         QTest::qWait(200);
         QVERIFY(send(QByteArray("Write-Output ('FILE-REMOTE-'+'INTERRUPTED')\r")));
         QTRY_VERIFY2_WITH_TIMEOUT(output.contains("FILE-REMOTE-INTERRUPTED"), output.constData(), 10000);
+        // Large UTF-16 file: response crosses many authenticated packets.
+        const QString remotePath = cwd.filePath(QString::fromUtf8("zdalny plik żółć.ini"));
+        const QString contents = QString::fromUtf8("[zdalny]\nwartość=żółć 😀\n") + QString(150000, QLatin1Char('x'));
+        QFile remoteFile(remotePath); QVERIFY(remoteFile.open(QIODevice::WriteOnly));
+        QStringEncoder encoder(QStringConverter::Utf16LE);
+        remoteFile.write(QByteArray("\xff\xfe", 2) + QByteArray(encoder(contents))); remoteFile.close();
+        int completed = 0; TextPreviewContent result;
+        const auto request = [&](const QString &path, bool textOnly, qint64 limit = 1024 * 1024) {
+            Process::requestFile(connectionArgumentsForTest, path, limit, true, textOnly, this,
+                [&](const TextPreviewContent &value) { result = value; ++completed; });
+        };
+        request(remotePath, false);
+        QTRY_COMPARE_WITH_TIMEOUT(completed, 1, 15000); QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
+        QCOMPARE(result.text, contents); QVERIFY(result.metadata.contains(QStringLiteral("Owner:")));
+        QVERIFY(result.metadata.contains(QStringLiteral("Created:"))); QVERIFY(result.metadata.contains(QStringLiteral("Full DACL")));
+        request(remotePath, true); QTRY_COMPARE_WITH_TIMEOUT(completed, 2, 15000);
+        QCOMPARE(result.text, contents); QVERIFY(result.metadata.isEmpty());
+        request(remotePath, true, 32); QTRY_COMPARE_WITH_TIMEOUT(completed, 3, 15000); QVERIFY(!result.error.isEmpty());
+        const QString imagePath = cwd.filePath(QString::fromUtf8("binary image żółć 😀.png"));
+        QFile image(imagePath); QVERIFY(image.open(QIODevice::WriteOnly));
+        image.write(QByteArray::fromBase64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==")); image.close();
+        request(imagePath, false); QTRY_COMPARE_WITH_TIMEOUT(completed, 4, 15000);
+        QVERIFY(result.error.isEmpty()); QVERIFY(result.text.contains(QStringLiteral("file:")));
+        if (!options.fileExecutable.isEmpty()) { QVERIFY2(result.text.contains(QStringLiteral("PNG image data")), qPrintable(result.text)); }
+        request(imagePath, true); QTRY_COMPARE_WITH_TIMEOUT(completed, 5, 15000); QVERIFY(!result.error.isEmpty());
+        request(cwd.filePath(QStringLiteral("missing.txt")), false); QTRY_COMPARE_WITH_TIMEOUT(completed, 6, 15000);
+        QVERIFY(result.text.contains(QStringLiteral("unavailable")) || !result.error.isEmpty());
+        if (!qEnvironmentVariable("KONSOLE_TEST_BUNDLED_PWSH").isEmpty()) {
+            QVERIFY(send(QByteArray("file --version; Write-Output ('REMOTE-FILE-' + $LASTEXITCODE)\r")));
+            QTRY_VERIFY2_WITH_TIMEOUT(output.contains("5.48"), output.constData(), 15000);
+            QTRY_VERIFY_WITH_TIMEOUT(output.contains("REMOTE-FILE-0"), 15000);
+            const QString quotedImage = QString(imagePath).replace(QLatin1Char('\''), QStringLiteral("''"));
+            QVERIFY(send(QStringLiteral("file --brief -- '%1'; Write-Output ('REMOTE-MAGIC-' + $LASTEXITCODE)\r").arg(quotedImage).toUtf8()));
+            QTRY_VERIFY2_WITH_TIMEOUT(output.contains("PNG image data"), output.constData(), 15000);
+            QTRY_VERIFY_WITH_TIMEOUT(output.contains("REMOTE-MAGIC-0"), 15000);
+        }
         QSignalSpy exited(&client, &IPtyProcess::exited);
         QVERIFY(send(QByteArray("exit 7\r")));
         QTRY_COMPARE_WITH_TIMEOUT(exited.count(), 1, 15000); QCOMPARE(client.exitCode(), 7);

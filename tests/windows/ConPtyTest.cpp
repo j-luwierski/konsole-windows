@@ -77,6 +77,12 @@ Write-Output 'konsole-readline-ready'
         const QByteArray search("\x12" "completed-result\r");
         QCOMPARE(process.write(search.constData(), search.size()), qint64(search.size()));
         QTRY_VERIFY_WITH_TIMEOUT(output.count("konsole-completed-result") > previousResults, 15000);
+        if (shell == qEnvironmentVariable("KONSOLE_TEST_BUNDLED_PWSH")) {
+            const QByteArray fileCommand("file --brief -- (Join-Path $PSHOME 'pwsh.exe'); Write-Output ('LOCAL-FILE-' + $LASTEXITCODE)\r");
+            QCOMPARE(process.write(fileCommand.constData(), fileCommand.size()), qint64(fileCommand.size()));
+            QTRY_VERIFY2_WITH_TIMEOUT(output.contains("PE32+ executable"), output.constData(), 15000);
+            QTRY_VERIFY_WITH_TIMEOUT(output.contains("LOCAL-FILE-0"), 15000);
+        }
         const QByteArray changeDirectory("Set-Location -LiteralPath $env:KONSOLE_PREVIEW_TEST_PATH\r");
         QCOMPARE(process.write(changeDirectory.constData(), changeDirectory.size()), qint64(changeDirectory.size()));
         const QByteArray directoryReport = QByteArray("\x1b]7;") + QUrl::fromLocalFile(workingDirectory.path()).toEncoded();

@@ -15,6 +15,7 @@ add_executable(SelectionClipboardTest SelectionClipboardTest.cpp)
 target_link_libraries(SelectionClipboardTest PRIVATE Qt6::Gui Qt6::Test)
 add_test(NAME SelectionClipboardTest COMMAND SelectionClipboardTest)
 add_executable(TextFilePreviewTest TextFilePreviewTest.cpp
+    ../../src/filterHotSpots/TextPreviewContent.cpp
     ../../src/filterHotSpots/TextFilePreview.cpp ../../src/filterHotSpots/TextFilePreview.h
     ../../src/filterHotSpots/FileMetadata.cpp ../../src/filterHotSpots/FileMetadata.h)
 target_link_libraries(TextFilePreviewTest PRIVATE Qt6::Widgets Qt6::Concurrent Qt6::Test)
@@ -32,14 +33,16 @@ add_test(NAME FileChannelTest COMMAND FileChannelTest)
 if(WIN32)
     add_executable(FileRemoteHostExecutable ../../src/fileremote/hostmain.cpp
         ../../src/fileremote/FileRemoteHost.cpp ../../src/fileremote/FileChannel.cpp
+        ../../src/filterHotSpots/TextPreviewContent.cpp ../../src/filterHotSpots/FileMetadata.cpp
         ../../src/ptyqt/conptyprocess.cpp ../../src/ptyqt/iptyprocess.cpp)
     set_target_properties(FileRemoteHostExecutable PROPERTIES OUTPUT_NAME konsole-file-host)
-    target_link_libraries(FileRemoteHostExecutable PRIVATE Qt6::Core)
+    target_link_libraries(FileRemoteHostExecutable PRIVATE Qt6::Core Qt6::Concurrent advapi32)
     target_compile_definitions(FileRemoteHostExecutable PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
     add_executable(FileRemoteHostTest FileRemoteHostTest.cpp
         ../../src/fileremote/FileRemoteHost.cpp ../../src/fileremote/FileRemoteProcess.cpp ../../src/fileremote/FileChannel.cpp
+        ../../src/filterHotSpots/TextPreviewContent.cpp ../../src/filterHotSpots/FileMetadata.cpp
         ../../src/ptyqt/conptyprocess.cpp ../../src/ptyqt/iptyprocess.cpp)
-    target_link_libraries(FileRemoteHostTest PRIVATE Qt6::Core Qt6::Test)
+    target_link_libraries(FileRemoteHostTest PRIVATE Qt6::Core Qt6::Concurrent Qt6::Test advapi32)
     target_compile_definitions(FileRemoteHostTest PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
     add_test(NAME FileRemoteHostTest COMMAND FileRemoteHostTest -o file-remote-results.xml,xml -o -,txt)
     set_tests_properties(FileRemoteHostTest PROPERTIES TIMEOUT 150 ENVIRONMENT "KONSOLE_TEST_HOST_BUILD=$<TARGET_FILE:FileRemoteHostExecutable>")

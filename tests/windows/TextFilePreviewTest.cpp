@@ -28,6 +28,43 @@ private Q_SLOTS:
             QCOMPARE(match.captured(), path);
         }
     }
+    void binaryFormatsNeverAppearAsRawText()
+    {
+        QTemporaryDir dir;
+        QFile pdf(dir.filePath(QStringLiteral("document.txt")));
+        QVERIFY(pdf.open(QIODevice::WriteOnly)); pdf.write("%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n"); pdf.close();
+        const auto text = TextPreviewContent::readText(pdf.fileName(), 4096);
+        QVERIFY(text.binary); QVERIFY(!text.error.isEmpty());
+        const auto info = TextPreviewContent::read(pdf.fileName(), 4096, true);
+        QVERIFY(info.error.isEmpty()); QVERIFY(info.text.contains(QStringLiteral("file:")));
+        QVERIFY(info.metadata.contains(QStringLiteral("Modified:")));
+        QVERIFY(!info.text.startsWith(QStringLiteral("%PDF")));
+    }
+    void remoteLoaderAndWholeFileCopy()
+    {
+        QWidget owner; owner.resize(300, 180); owner.show();
+        QTest::qWait(30);
+        auto *preview = TextFilePreview::forWidget(&owner);
+        const QString text = QString::fromUtf8("[zdalny]\nwartość=żółć 😀\n") + QString(100000, QLatin1Char('x'));
+        int requests = 0;
+        TextFilePreview::Loader loader = [&](const QString &path, qint64, bool, bool textOnly, QObject *receiver, TextFilePreview::Completion done) {
+            ++requests;
+            QCOMPARE(path, QStringLiteral("Z:/remote-only/nonexistent-here.ini"));
+            QTimer::singleShot(10, receiver, [done, textOnly, text] {
+                done({text, {}, false, textOnly ? QString() : QStringLiteral("Owner: REMOTE\\user\nCreated: remote-date")});
+            });
+        };
+        TextPreviewOptions options; options.delayMs = 100;
+        const QPoint point = owner.mapToGlobal(QPoint(40, 40)); QCursor::setPos(point);
+        preview->hoverFile(QStringLiteral("Z:/remote-only/nonexistent-here.ini"), point, options, loader, QStringLiteral("remote1"));
+        QTRY_VERIFY_WITH_TIMEOUT(preview->popup()->isVisible(), 3000);
+        QVERIFY(preview->editor()->toPlainText().startsWith(QStringLiteral("Owner: REMOTE")));
+        QVERIFY(preview->editor()->toPlainText().endsWith(text));
+        QApplication::clipboard()->setText(QStringLiteral("old"));
+        TextFilePreview::copyFileContents(QStringLiteral("Z:/remote-only/nonexistent-here.ini"), 1024 * 1024, &owner, loader);
+        QTRY_COMPARE_WITH_TIMEOUT(QApplication::clipboard()->text(), text, 3000);
+        QCOMPARE(requests, 2); preview->dismiss();
+    }
     void fileIdentificationFallback()
     {
         QTemporaryDir directory;
