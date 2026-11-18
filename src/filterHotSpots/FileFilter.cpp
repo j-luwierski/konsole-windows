@@ -14,6 +14,7 @@
 #include "session/SessionManager.h"
 
 #include "FileFilterHotspot.h"
+#include "TextFilePreview.h"
 
 using namespace Konsole;
 
@@ -47,6 +48,9 @@ QString FileFilter::concatRegexPattern(QString wordCharacters) const
     }
 
     const QString pattern =
+#ifdef Q_OS_WIN
+        TextPreviewContent::windowsPathPattern() +
+#endif
         /* First part of the regexp means 'strings with spaces and starting with single quotes'
          * Second part means "Strings with double quotes"
          * Last part means "Everything else plus some special chars
@@ -85,6 +89,23 @@ QSharedPointer<HotSpot> FileFilter::newHotSpot(int startLine, int startColumn, i
         return nullptr;
     }
 
+#ifdef Q_OS_WIN
+    static const QRegularExpression locationSuffix(QStringLiteral(R"((:\d+(?::\d+)?:?|\(\d+(?:,\d+)?\)\]?)$)"));
+    const QString location = locationSuffix.match(capturedTexts.first()).captured();
+    QString path = TextPreviewContent::pathWithoutLocation(capturedTexts.first());
+    path = QDir::fromNativeSeparators(path);
+    // Network paths are not probed automatically while scanning terminal output.
+    if (path.startsWith(QStringLiteral("//"))) {
+        return nullptr;
+    }
+    if (QDir::isRelativePath(path)) {
+        path = QDir(_dirPath).filePath(path);
+    }
+    if (!QFileInfo(path).isFile()) {
+        return nullptr;
+    }
+    return QSharedPointer<HotSpot>(new FileFilterHotSpot(startLine, startColumn, endLine, endColumn, capturedTexts, path + location, _session));
+#else
     const QString &filenameRef = capturedTexts.first();
     QStringView filename = filenameRef;
     if (filename.startsWith(QLatin1Char('\'')) && filename.endsWith(QLatin1Char('\''))) {
@@ -137,6 +158,7 @@ QSharedPointer<HotSpot> FileFilter::newHotSpot(int startLine, int startColumn, i
                                                          capturedTexts,
                                                          !absolute ? _dirPath + filename.toString() : filename.toString(),
                                                          _session));
+#endif
 }
 
 void FileFilter::process()

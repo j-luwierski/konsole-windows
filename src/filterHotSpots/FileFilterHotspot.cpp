@@ -6,6 +6,7 @@
 */
 
 #include "FileFilterHotspot.h"
+#include "TextFilePreview.h"
 
 #include <QAction>
 #include <QApplication>
@@ -304,12 +305,30 @@ void FileFilterHotSpot::mouseEnterEvent(TerminalDisplay *td, QMouseEvent *ev)
 {
     HotSpot::mouseEnterEvent(td, ev);
     requestThumbnail(ev->modifiers(), ev->globalPosition().toPoint());
+    mouseMoveEvent(td, ev);
+}
+
+void FileFilterHotSpot::mouseMoveEvent(TerminalDisplay *td, QMouseEvent *ev)
+{
+    auto *settings = KonsoleSettings::self();
+    TextPreviewOptions options;
+    options.enabled = settings->enableTextFilePreviews();
+    options.delayMs = settings->textFilePreviewDelay();
+    options.leaveDelayMs = settings->textFilePreviewLeaveDelay();
+    options.width = settings->textFilePreviewWidth();
+    options.height = settings->textFilePreviewHeight();
+    options.maximumMiB = settings->textFilePreviewMaximumMiB();
+    _textPreview = TextFilePreview::forWidget(td);
+    _textPreview->hoverFile(_filePath, ev->globalPosition().toPoint(), options);
 }
 
 void FileFilterHotSpot::mouseLeaveEvent(TerminalDisplay *td, QMouseEvent *ev)
 {
     HotSpot::mouseLeaveEvent(td, ev);
     stopThumbnailGeneration();
+    if (_textPreview) {
+        _textPreview->leavePath();
+    }
 }
 
 void FileFilterHotSpot::keyPressEvent(Konsole::TerminalDisplay *td, QKeyEvent *ev)

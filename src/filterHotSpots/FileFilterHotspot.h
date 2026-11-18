@@ -30,6 +30,7 @@ namespace Konsole
 {
 class Session;
 class TerminalDisplay;
+class TextFilePreview;
 
 /**
  * Hotspot type created by FileFilter instances.
@@ -60,6 +61,7 @@ public:
     static void stopThumbnailGeneration();
 
     void mouseEnterEvent(TerminalDisplay *td, QMouseEvent *ev) override;
+    void mouseMoveEvent(TerminalDisplay *td, QMouseEvent *ev) override;
     void mouseLeaveEvent(TerminalDisplay *td, QMouseEvent *ev) override;
 
     void keyPressEvent(TerminalDisplay *td, QKeyEvent *ev) override;
@@ -69,6 +71,7 @@ private:
     void openWithEditorFromProfile(const QString &fullCmd, const QString &path) const;
 
     void showThumbnail(const KFileItem &item, const QPixmap &preview);
+    QPointer<TextFilePreview> _textPreview;
     QString _filePath = QString();
     Session *_session = nullptr;
 
