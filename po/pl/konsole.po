@@ -6800,3 +6800,15 @@ msgstr ""
 
 #~ msgid "C&lear Display"
 #~ msgstr "Wy&czyść terminal"
+
+#: src/filterHotSpots/FileFilterHotspot.cpp
+msgid "Copy Full File Path"
+msgstr "Kopiuj pełną ścieżkę pliku"
+
+#: src/filterHotSpots/FileFilterHotspot.cpp
+msgid "Copy Entire File Contents"
+msgstr "Kopiuj całą zawartość"
+
+#: src/filterHotSpots/UrlFilterHotspot.cpp src/filterHotSpots/EscapeSequenceUrlFilterHotSpot.cpp
+msgid "Open in Browser"
+msgstr "Otwórz w przeglądarce"
