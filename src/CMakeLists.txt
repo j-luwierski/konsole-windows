@@ -210,6 +210,8 @@ if(WIN32)
     target_sources(konsoleprivate PRIVATE
         ptyqt/iptyprocess.cpp
         ptyqt/conptyprocess.cpp
+        fileremote/FileChannel.cpp
+        fileremote/FileRemoteProcess.cpp
     )
 endif()
 
@@ -416,4 +418,16 @@ if(COVERAGE_GENERATE_HTML)
     # generate report
     COMMAND ${GENHTML} --ignore-errors source --demangle-cpp -o coverage coverage.info
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+endif()
+
+# Standalone, foreground Windows host for the shared-folder terminal transport.
+if(WIN32)
+    target_sources(konsoleapp PRIVATE fileremote/RemoteTabDialog.cpp)
+    add_executable(konsole-file-host
+        fileremote/hostmain.cpp fileremote/FileRemoteHost.cpp fileremote/FileChannel.cpp
+        ptyqt/conptyprocess.cpp ptyqt/iptyprocess.cpp)
+    target_link_libraries(konsole-file-host PRIVATE Qt::Core)
+    target_compile_definitions(konsole-file-host PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+    install(TARGETS konsole-file-host ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
+    install(FILES ../tools/windows/Start-RemoteHost.ps1 DESTINATION ${KDE_INSTALL_BINDIR})
 endif()

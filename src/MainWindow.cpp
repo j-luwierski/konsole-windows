@@ -6,6 +6,10 @@
 
 // Own
 #include "MainWindow.h"
+#ifdef Q_OS_WIN
+#include "fileremote/RemoteTabDialog.h"
+#include <QCoreApplication>
+#endif
 #include "config-konsole.h"
 
 // Qt
@@ -438,6 +442,29 @@ void MainWindow::setupActions()
     collection->addAction(QStringLiteral("new-tab"), _newTabMenuAction);
     collection->setShortcutsConfigurable(_newTabMenuAction, true);
 
+#ifdef Q_OS_WIN
+    auto *remoteTab = collection->addAction(QStringLiteral("new-remote-tab"));
+    remoteTab->setText(i18n("New Remote Tab"));
+    remoteTab->setIcon(QIcon::fromTheme(QStringLiteral("network-server")));
+    connect(remoteTab, &QAction::triggered, this, [this] {
+        const QByteArray config = FileRemote::configureConnection(this, true);
+        if (config.isEmpty()) { return; }
+        Profile::Ptr profile(new Profile(ProfileManager::instance()->defaultProfile()));
+        profile->setHidden(true);
+        profile->setProperty(Profile::Name, i18n("Remote PowerShell"));
+        profile->setProperty(Profile::Command, QCoreApplication::applicationFilePath());
+        profile->setProperty(Profile::Arguments, QStringList{QCoreApplication::applicationFilePath(),
+            QStringLiteral("--konsole-file-remote"), QString::fromLatin1(config.toBase64())});
+        // Remote paths cannot be interpreted as files on the client computer.
+        profile->setProperty(Profile::UnderlineFilesEnabled, false);
+        profile->setProperty(Profile::AllowEscapedLinks, false);
+        createSession(profile, QString());
+    });
+    auto *remoteSettings = collection->addAction(QStringLiteral("configure-file-remote"));
+    remoteSettings->setText(i18n("Configure Remote Tabs…"));
+    connect(remoteSettings, &QAction::triggered, this, [this] { FileRemote::configureConnection(this, false); });
+#endif
+
     QAction *menuAction = collection->addAction(QStringLiteral("clone-tab"));
     menuAction->setIcon(QIcon::fromTheme(QStringLiteral("tab-duplicate")));
     menuAction->setText(i18nc("@action:inmenu", "&Clone Tab"));
@@ -544,6 +571,10 @@ void MainWindow::updateHamburgerMenu()
 
     menu->addAction(collection->action(QStringLiteral("new-window")));
     menu->addAction(collection->action(QStringLiteral("new-tab")));
+#ifdef Q_OS_WIN
+    menu->addAction(collection->action(QStringLiteral("new-remote-tab")));
+    menu->addAction(collection->action(QStringLiteral("configure-file-remote")));
+#endif
     menu->addAction(controllerCollection->action(QStringLiteral("file_save_as")));
 
     menu->addSeparator();

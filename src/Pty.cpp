@@ -396,6 +396,7 @@ int Pty::flatpakSpawnProcessId() const
 #else // Windows backend
 
 #include "ptyqt/conptyprocess.h"
+#include "fileremote/FileRemoteProcess.h"
 
 using Konsole::Pty;
 
@@ -500,6 +501,9 @@ void Pty::addEnvironmentVariables(const QStringList & /*environmentVariables*/)
 
 int Pty::start(const QString &program, const QStringList &arguments, const QString &workingDir, const QStringList &environment, int cols, int lines)
 {
+    if (arguments.size() == 2 && arguments.first() == QStringLiteral("--konsole-file-remote")) {
+        m_proc = std::make_unique<Konsole::FileRemote::Process>();
+    }
     if (!m_proc || !m_proc->isAvailable()) {
         return -1;
     }
