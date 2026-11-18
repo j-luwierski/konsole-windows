@@ -54,6 +54,8 @@ private Q_SLOTS:
     void powerShellCompletionAndHistory()
     {
         QFETCH(QString, shell);
+        QTemporaryDir workingDirectory(QDir::tempPath() + QStringLiteral("/Konsole preview cwd XXXXXX"));
+        QVERIFY(workingDirectory.isValid());
         ConPtyProcess process;
         QByteArray output;
         connect(process.notifier(), &QIODevice::readyRead, this, [&] { output += process.readAll(); });
@@ -64,7 +66,7 @@ $expectedReadLine = Join-Path $PSHOME 'Modules/PSReadLine'
 if ((Test-Path (Join-Path $expectedReadLine 'PSReadLine.psd1')) -and (Get-Module PSReadLine).ModuleBase -ne $expectedReadLine) { throw 'PSReadLine not loaded from shell distribution' }
 Write-Output 'konsole-readline-ready'
 )PS");
-        QVERIFY2(process.startProcess(shell, WindowsShellIntegration::arguments(script), {}, {}, 120, 40), qPrintable(process.lastError()));
+        QVERIFY2(process.startProcess(shell, WindowsShellIntegration::arguments(script), {}, {QStringLiteral("KONSOLE_PREVIEW_TEST_PATH=") + workingDirectory.path()}, 120, 40), qPrintable(process.lastError()));
         QTRY_VERIFY2_WITH_TIMEOUT(output.contains("konsole-readline-ready"), output.constData(), 20000);
         // The expected result is not present verbatim in the input, so merely
         // echoing the keystrokes cannot make this test pass.
@@ -75,6 +77,10 @@ Write-Output 'konsole-readline-ready'
         const QByteArray search("\x12" "completed-result\r");
         QCOMPARE(process.write(search.constData(), search.size()), qint64(search.size()));
         QTRY_VERIFY_WITH_TIMEOUT(output.count("konsole-completed-result") > previousResults, 15000);
+        const QByteArray changeDirectory("Set-Location -LiteralPath $env:KONSOLE_PREVIEW_TEST_PATH\r");
+        QCOMPARE(process.write(changeDirectory.constData(), changeDirectory.size()), qint64(changeDirectory.size()));
+        const QByteArray directoryReport = QByteArray("\x1b]7;") + QUrl::fromLocalFile(workingDirectory.path()).toEncoded();
+        QTRY_VERIFY2_WITH_TIMEOUT(output.contains(directoryReport), output.constData(), 15000);
         process.kill();
     }
     void inputAndResize()
