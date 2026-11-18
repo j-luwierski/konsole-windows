@@ -6812,3 +6812,42 @@ msgstr "Kopiuj całą zawartość"
 #: src/filterHotSpots/UrlFilterHotspot.cpp src/filterHotSpots/EscapeSequenceUrlFilterHotSpot.cpp
 msgid "Open in Browser"
 msgstr "Otwórz w przeglądarce"
+
+msgid "New Remote Tab"
+msgstr "Nowa zdalna karta"
+
+msgid "Remote PowerShell"
+msgstr "Zdalny PowerShell"
+
+msgid "Configure Remote Tabs…"
+msgstr "Konfiguruj zdalne karty…"
+
+msgid "Remote Tab via Shared Folder"
+msgstr "Zdalna karta przez współdzielony folder"
+
+msgid "Exchange folder:"
+msgstr "Folder wymiany:"
+
+msgid "Exchange folder"
+msgstr "Folder wymiany"
+
+msgid "Host ID:"
+msgstr "Identyfikator hosta:"
+
+msgid "Pairing key:"
+msgstr "Klucz parowania:"
+
+msgid "Folder polling interval:"
+msgstr "Częstotliwość sprawdzania folderu:"
+
+msgid "Connection / heartbeat timeout:"
+msgstr "Limit oczekiwania na połączenie / odpowiedź:"
+
+msgid "64 hexadecimal characters from the host"
+msgstr "64 znaki szesnastkowe z programu hosta"
+
+msgid "Save settings"
+msgstr "Zapisz ustawienia"
+
+msgid "Remote Tab"
+msgstr "Zdalna karta"
