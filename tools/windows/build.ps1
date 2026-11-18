@@ -47,6 +47,8 @@ if (-not $SkipPackage) {
         Expand-Archive -LiteralPath $archive.FullName -DestinationPath $portableTest
         $env:KONSOLE_TEST_BUNDLED_PWSH = Join-Path $portableTest 'powershell/pwsh.exe'
         $env:KONSOLE_TEST_FILE_EXE = Join-Path $portableTest 'file/file.exe'
+        $env:KONSOLE_TEST_HOST_EXE = Join-Path $portableTest 'bin/konsole-file-host.exe'
+        if (-not (Test-Path (Join-Path $portableTest 'bin/Start-RemoteHost.ps1'))) { throw 'Remote host launcher missing from portable ZIP.' }
         try {
             $originalPath = $env:PATH
             try {
@@ -60,7 +62,9 @@ if (-not $SkipPackage) {
             & ctest --test-dir $testBuild --output-on-failure --output-junit (Join-Path $OutputDirectory 'portable-runtime-tests.xml')
             if ($LASTEXITCODE -ne 0) { throw 'Portable PowerShell integration tests failed.' }
             Copy-Item (Join-Path $testBuild 'conpty-results.xml') (Join-Path $OutputDirectory 'portable-conpty-results.xml')
+            Copy-Item (Join-Path $testBuild 'file-remote-results.xml') (Join-Path $OutputDirectory 'portable-file-remote-results.xml')
         } finally {
+            Remove-Item Env:KONSOLE_TEST_HOST_EXE -ErrorAction SilentlyContinue
             Remove-Item Env:KONSOLE_TEST_FILE_EXE -ErrorAction SilentlyContinue
             Remove-Item Env:KONSOLE_TEST_BUNDLED_PWSH -ErrorAction SilentlyContinue
             Remove-Item $portableTest -Recurse -Force -ErrorAction SilentlyContinue
