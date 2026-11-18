@@ -1503,7 +1503,7 @@ void SessionController::updateFilterList(const Profile::Ptr &profile)
 
     if (profile->underlineLinksEnabled()) {
         if (_urlFilter == nullptr) { // Initialize
-            _urlFilter = new UrlFilter();
+            _urlFilter = new UrlFilter(session());
             filterChain->addFilter(_urlFilter);
         }
     } else if (_urlFilter != nullptr) { // It became disabled, clean up
