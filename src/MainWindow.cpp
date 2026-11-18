@@ -1110,7 +1110,7 @@ void MainWindow::showSettingsDialog(const bool showProfilePage)
     temporaryFilesPage->setIcon(QIcon::fromTheme(QStringLiteral("folder-temp")));
     confDialog->addPage(temporaryFilesPage, true);
 
-    const QString thumbnailPageName = i18nc("@title Preferences page name", "Thumbnails");
+    const QString thumbnailPageName = i18nc("@title Preferences page name", "Thumbnails / File previews");
     auto thumbnailPage = new KPageWidgetItem(new ThumbnailsSettings(confDialog), thumbnailPageName);
     thumbnailPage->setIcon(QIcon::fromTheme(QStringLiteral("image-jpeg")));
     confDialog->addPage(thumbnailPage, true);

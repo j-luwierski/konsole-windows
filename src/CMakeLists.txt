@@ -130,6 +130,7 @@ target_sources(konsoleprivate PRIVATE
     filterHotSpots/EscapeSequenceUrlFilterHotSpot.cpp
     filterHotSpots/FileFilter.cpp
     filterHotSpots/FileFilterHotspot.cpp
+    filterHotSpots/TextFilePreview.cpp
     filterHotSpots/Filter.cpp
     filterHotSpots/FilterChain.cpp
     filterHotSpots/HotSpot.cpp
@@ -249,6 +250,7 @@ target_link_libraries(konsoleprivate
         KF6::ConfigCore
         KF6::XmlGui
     PRIVATE
+        Qt::Concurrent
         konsolecolorscheme
         keyboardtranslator
         konsolecharacters
