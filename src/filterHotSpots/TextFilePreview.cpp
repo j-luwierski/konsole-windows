@@ -84,7 +84,9 @@ TextPreviewContent TextPreviewContent::read(const QString &path, qint64 maximumB
             process.waitForFinished(1000);
             description += QObject::tr("file could not complete: %1").arg(process.errorString());
         } else if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
-            description += QObject::tr("file failed: %1").arg(QString::fromLocal8Bit((process.readAllStandardError() + process.readAllStandardOutput()).left(32768)));
+            QByteArray errorOutput = process.readAllStandardError();
+            errorOutput += process.readAllStandardOutput();
+            description += QObject::tr("file failed: %1").arg(QString::fromLocal8Bit(errorOutput.left(32768)));
         } else {
             description += QString::fromUtf8(process.readAllStandardOutput().left(32768)).trimmed();
         }
