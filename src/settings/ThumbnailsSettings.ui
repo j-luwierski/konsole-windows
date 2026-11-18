@@ -38,6 +38,25 @@
      </property>
     </widget>
    </item>
+   <item row="2" column="0" colspan="2">
+    <widget class="QGroupBox" name="textFilePreviewGroup">
+     <property name="title"><string>Interactive text file previews</string></property>
+     <layout class="QFormLayout" name="textPreviewLayout">
+      <item row="0" column="0" colspan="2"><widget class="QCheckBox" name="kcfg_EnableTextFilePreviews"><property name="text"><string>Preview text files after a stationary mouse hover</string></property></widget></item>
+      <item row="1" column="0"><widget class="QLabel" name="labelTextFilePreviewDelay"><property name="text"><string>Hover delay:</string></property></widget></item>
+      <item row="1" column="1"><widget class="QSpinBox" name="kcfg_TextFilePreviewDelay"><property name="minimum"><number>100</number></property><property name="maximum"><number>30000</number></property><property name="suffix"><string> ms</string></property></widget></item>
+      <item row="2" column="0"><widget class="QLabel" name="labelTextFilePreviewLeaveDelay"><property name="text"><string>Time to enter / leave preview:</string></property></widget></item>
+      <item row="2" column="1"><widget class="QSpinBox" name="kcfg_TextFilePreviewLeaveDelay"><property name="minimum"><number>100</number></property><property name="maximum"><number>2000</number></property><property name="suffix"><string> ms</string></property></widget></item>
+      <item row="3" column="0"><widget class="QLabel" name="labelTextFilePreviewWidth"><property name="text"><string>Width:</string></property></widget></item>
+      <item row="3" column="1"><widget class="QSpinBox" name="kcfg_TextFilePreviewWidth"><property name="minimum"><number>320</number></property><property name="maximum"><number>1600</number></property><property name="suffix"><string> px</string></property></widget></item>
+      <item row="4" column="0"><widget class="QLabel" name="labelTextFilePreviewHeight"><property name="text"><string>Height:</string></property></widget></item>
+      <item row="4" column="1"><widget class="QSpinBox" name="kcfg_TextFilePreviewHeight"><property name="minimum"><number>160</number></property><property name="maximum"><number>1200</number></property><property name="suffix"><string> px</string></property></widget></item>
+      <item row="5" column="0"><widget class="QLabel" name="labelTextFilePreviewMaximumMiB"><property name="text"><string>Maximum file size:</string></property></widget></item>
+      <item row="5" column="1"><widget class="QSpinBox" name="kcfg_TextFilePreviewMaximumMiB"><property name="minimum"><number>1</number></property><property name="maximum"><number>256</number></property><property name="suffix"><string> MiB</string></property></widget></item>
+      <item row="6" column="0" colspan="2"><widget class="QLabel" name="textPreviewHelp"><property name="text"><string>Local text files only. Move into the preview to scroll, select and copy text. Moving out closes it. Enable Underline files in the profile's mouse settings.</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+     </layout>
+    </widget>
+   </item>
    <item row="7" column="1">
     <layout class="QFormLayout" name="formLayout_3">
      <item row="0" column="0">
