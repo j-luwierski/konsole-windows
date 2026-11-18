@@ -105,8 +105,11 @@ private Q_SLOTS:
         preview.editor()->selectAll();
         preview.editor()->copy();
         QCOMPARE(QApplication::clipboard()->text(), fullText);
-        QCursor::setPos(owner.mapToGlobal(QPoint(2, 2)));
-        QTest::mouseMove(&owner, QPoint(2, 2));
+        QCursor::setPos(anchor);
+        QTest::mouseMove(&owner, owner.mapFromGlobal(anchor));
+        preview.hoverFile(file.fileName(), anchor, options);
+        QVERIFY(!preview.popup()->isVisible());
+        preview.leavePath();
         QTRY_VERIFY_WITH_TIMEOUT(!preview.popup()->isVisible(), 1500);
         options.enabled = false;
         preview.hoverFile(file.fileName(), QCursor::pos(), options);
