@@ -8,6 +8,7 @@
 #include "MainWindow.h"
 #ifdef Q_OS_WIN
 #include "fileremote/RemoteTabDialog.h"
+#include "fileremote/FileRemoteConfig.h"
 #include <QCoreApplication>
 #endif
 #include "config-konsole.h"
@@ -453,8 +454,10 @@ void MainWindow::setupActions()
         profile->setHidden(true);
         profile->setProperty(Profile::Name, i18n("Remote PowerShell"));
         profile->setProperty(Profile::Command, QCoreApplication::applicationFilePath());
-        profile->setProperty(Profile::Arguments, QStringList{QCoreApplication::applicationFilePath(),
-            QStringLiteral("--konsole-file-remote"), QString::fromLatin1(config.toBase64())});
+        QStringList arguments{QCoreApplication::applicationFilePath()};
+        arguments.append(FileRemote::connectionArguments(config));
+        profile->setProperty(Profile::Arguments, arguments);
+        profile->setProperty(Profile::ContainerName, QString());
         // Remote paths cannot be interpreted as files on the client computer.
         profile->setProperty(Profile::UnderlineFilesEnabled, false);
         profile->setProperty(Profile::AllowEscapedLinks, false);
