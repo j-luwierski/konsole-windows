@@ -84,6 +84,37 @@ W aplikacjach przechwytujących mysz użyj **Shift+środkowy przycisk**.
 W ustawieniach myszy profilu środkowy przycisk musi mieć wybrane wklejanie
 zaznaczenia (ustawienie domyślne), a nie zwykłego schowka.
 
+## Interaktywny podgląd plików tekstowych
+
+Zatrzymaj kursor nad rozpoznaną ścieżką do lokalnego pliku przez **2 sekundy**.
+Pojawi się okno bez ramki z całym tekstem i paskiem przewijania. Przenieś
+kursor do podglądu: możesz przewijać, zaznaczać i kopiować tekst przez
+Ctrl+C, Ctrl+Insert, Ctrl+Shift+C lub menu kontekstowe. Wyjazd kursorem poza
+podgląd zamyka okno; Esc także je zamyka. Przejście ze ścieżki do podglądu
+ma domyślnie 250 ms tolerancji, aby okno nie zniknęło po drodze.
+
+**Ustawienia → Konfiguracja Konsole → Thumbnails / File previews**:
+
+- włączenie / wyłączenie interaktywnego podglądu;
+- opóźnienie nieruchomego kursora: 100–30000 ms, domyślnie 2000 ms;
+- czas na przejście do podglądu i jego zamknięcie: 100–2000 ms;
+- szerokość i wysokość okna, domyślnie 640×420 px;
+- limit rozmiaru pliku: 1–256 MiB, domyślnie 16 MiB.
+
+Podgląd nie ucina tekstu do pierwszych wierszy. Plik przekraczający limit
+wyświetla informację o konieczności zwiększenia limitu. Rozpoznawana jest
+zawartość, nie tylko rozszerzenie: np. TXT, INI, CONF, LOG, JSON, kod źródłowy
+i pliki bez rozszerzenia. Obsługiwane są UTF-8, Unicode z BOM (w tym UTF-16)
+i kodowanie systemowe Windows. Pliki binarne są pomijane. Czytanie pliku
+odbywa się w tle, a podgląd jest tylko do odczytu.
+
+W profilu włącz **Mysz → Różne → Podkreślaj pliki**. Wbudowany profil Windows
+ma tę opcję domyślnie włączoną; wcześniejsze własne profile zachowują swoje
+ustawienia. Nazwy ze spacjami najlepiej wypisywać w cudzysłowie. Obsługiwane
+są lokalne ścieżki Windows i ścieżki względne; wbudowany PowerShell zgłasza
+bieżący katalog po zmianie przez `cd`. Podgląd nie pobiera plików przez SSH,
+HTTP ani UNC. Nie uruchamia treści pliku i nie renderuje HTML.
+
 ## Testy backendu
 
 Testy backendu nie wymagają KDE Frameworks. W środowisku z Qt i MSVC:

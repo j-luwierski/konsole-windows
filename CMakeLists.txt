@@ -37,6 +37,7 @@ include(KDEGitCommitHooks)
 include(CheckFunctionExists)
 
 find_package(Qt6 ${QT_MIN_VERSION} CONFIG REQUIRED
+    Concurrent
     Core
     Multimedia
     PrintSupport
