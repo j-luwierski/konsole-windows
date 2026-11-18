@@ -28,6 +28,13 @@ inline QString bundledPowerShell(const QString &applicationDirectory)
 inline QString initializationScript()
 {
     return QStringLiteral(R"PS(
+# Expose the portable native file command, including its magic database.
+$konsoleFileRoot = $env:KONSOLE_PORTABLE_FILE_DIRECTORY
+if (!$konsoleFileRoot) { $konsoleFileRoot = Join-Path (Split-Path -Parent $PSHOME) 'file' }
+if (Test-Path -LiteralPath (Join-Path $konsoleFileRoot 'file.exe')) {
+    $env:PATH = $konsoleFileRoot + [IO.Path]::PathSeparator + $env:PATH
+    $env:MAGIC = Join-Path $konsoleFileRoot 'magic.mgc'
+}
 try {
     $konsoleReadLine = Join-Path $PSHOME 'Modules/PSReadLine/PSReadLine.psd1'
     if (Test-Path -LiteralPath $konsoleReadLine) {
