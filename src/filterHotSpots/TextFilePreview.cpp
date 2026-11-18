@@ -2,6 +2,12 @@
 #include "TextFilePreview.h"
 
 #include <QApplication>
+#include <QCoreApplication>
+#include <QDir>
+#include <QMimeDatabase>
+#include <QProcess>
+#include <QProcessEnvironment>
+#include <QStandardPaths>
 #include <QClipboard>
 #include <QCursor>
 #include <QFile>
@@ -42,7 +48,51 @@ QString TextPreviewContent::pathWithoutLocation(QString path)
     return path;
 }
 
-TextPreviewContent TextPreviewContent::read(const QString &path, qint64 maximumBytes)
+QString TextPreviewContent::fileCommand()
+{
+#ifdef Q_OS_WIN
+    const QString bundled = QDir::cleanPath(QCoreApplication::applicationDirPath() + QStringLiteral("/../file/file.exe"));
+    if (QFileInfo::exists(bundled)) { return bundled; }
+#endif
+    return QStandardPaths::findExecutable(QStringLiteral("file"));
+}
+
+TextPreviewContent TextPreviewContent::read(const QString &path, qint64 maximumBytes, bool showFileInfo, const QString &fileExecutable)
+{
+    auto content = readText(path, maximumBytes);
+    if (!showFileInfo || content.error.isEmpty()) {
+        return content;
+    }
+    const QFileInfo info(path);
+    QString description = QObject::tr("Text preview unavailable: %1\n\nFile: %2\nSize: %3 bytes\nMIME: %4\n\nfile:\n")
+                              .arg(content.error, info.fileName()).arg(info.size()).arg(QMimeDatabase().mimeTypeForFile(info).name());
+    const QString program = fileExecutable.isEmpty() ? fileCommand() : fileExecutable;
+    if (program.isEmpty()) {
+        description += QObject::tr("The file identification tool is unavailable.");
+    } else {
+        QProcess process;
+        auto environment = QProcessEnvironment::systemEnvironment();
+        environment.insert(QStringLiteral("LC_ALL"), QStringLiteral("C"));
+        process.setProcessEnvironment(environment);
+        QStringList arguments{QStringLiteral("--brief")};
+        const QString magic = QFileInfo(program).dir().filePath(QStringLiteral("magic.mgc"));
+        if (QFileInfo::exists(magic)) { arguments << QStringLiteral("--magic-file") << magic; }
+        arguments << QStringLiteral("--") << info.absoluteFilePath();
+        process.start(program, arguments, QIODevice::ReadOnly);
+        if (!process.waitForStarted(1000) || !process.waitForFinished(5000)) {
+            process.kill();
+            process.waitForFinished(1000);
+            description += QObject::tr("file could not complete: %1").arg(process.errorString());
+        } else if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+            description += QObject::tr("file failed: %1").arg(QString::fromLocal8Bit((process.readAllStandardError() + process.readAllStandardOutput()).left(32768)));
+        } else {
+            description += QString::fromUtf8(process.readAllStandardOutput().left(32768)).trimmed();
+        }
+    }
+    return {description, {}, false};
+}
+
+TextPreviewContent TextPreviewContent::readText(const QString &path, qint64 maximumBytes)
 {
     const QFileInfo info(path);
     if (!info.isFile()) {
@@ -189,6 +239,7 @@ void TextFilePreview::load()
     }
     const auto generation = ++_generation;
     const auto path = _path;
+    const bool showFileInfo = _options.showFileInfo;
     const qint64 limit = qBound(1, _options.maximumMiB, 256) * qint64(1024 * 1024);
     auto *watcher = new QFutureWatcher<TextPreviewContent>(this);
     connect(watcher, &QFutureWatcher<TextPreviewContent>::finished, this, [this, watcher, generation] {
@@ -198,7 +249,7 @@ void TextFilePreview::load()
             showContent(result);
         }
     });
-    watcher->setFuture(QtConcurrent::run([path, limit] { return TextPreviewContent::read(path, limit); }));
+    watcher->setFuture(QtConcurrent::run([path, limit, showFileInfo] { return TextPreviewContent::read(path, limit, showFileInfo); }));
 }
 
 void TextFilePreview::showContent(const TextPreviewContent &content)

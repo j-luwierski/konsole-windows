@@ -313,6 +313,7 @@ void FileFilterHotSpot::mouseMoveEvent(TerminalDisplay *td, QMouseEvent *ev)
     auto *settings = KonsoleSettings::self();
     TextPreviewOptions options;
     options.enabled = settings->enableTextFilePreviews();
+    options.showFileInfo = settings->textFilePreviewShowFileInfo();
     options.delayMs = settings->textFilePreviewDelay();
     options.leaveDelayMs = settings->textFilePreviewLeaveDelay();
     options.width = settings->textFilePreviewWidth();

@@ -13,6 +13,7 @@ namespace Konsole
 {
 struct TextPreviewOptions {
     bool enabled = true;
+    bool showFileInfo = true;
     int delayMs = 2000;
     int leaveDelayMs = 250;
     int width = 640;
@@ -23,7 +24,9 @@ struct TextPreviewContent {
     QString text;
     QString error;
     bool binary = false;
-    static TextPreviewContent read(const QString &path, qint64 maximumBytes);
+    static TextPreviewContent read(const QString &path, qint64 maximumBytes, bool showFileInfo = false, const QString &fileExecutable = {});
+    static TextPreviewContent readText(const QString &path, qint64 maximumBytes);
+    static QString fileCommand();
     static QString pathWithoutLocation(QString path);
     static QString windowsPathPattern();
 };
