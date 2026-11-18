@@ -53,6 +53,7 @@
       <item row="4" column="1"><widget class="QSpinBox" name="kcfg_TextFilePreviewHeight"><property name="minimum"><number>160</number></property><property name="maximum"><number>1200</number></property><property name="suffix"><string> px</string></property></widget></item>
       <item row="5" column="0"><widget class="QLabel" name="labelTextFilePreviewMaximumMiB"><property name="text"><string>Maximum file size:</string></property></widget></item>
       <item row="5" column="1"><widget class="QSpinBox" name="kcfg_TextFilePreviewMaximumMiB"><property name="minimum"><number>1</number></property><property name="maximum"><number>256</number></property><property name="suffix"><string> MiB</string></property></widget></item>
+      <item row="7" column="0" colspan="2"><widget class="QCheckBox" name="kcfg_TextFilePreviewShowFileInfo"><property name="text"><string>Show file identification when text preview is unavailable</string></property></widget></item>
       <item row="6" column="0" colspan="2"><widget class="QLabel" name="textPreviewHelp"><property name="text"><string>Local text files only. Move into the preview to scroll, select and copy text. Moving out closes it. Enable Underline files in the profile's mouse settings.</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
      </layout>
     </widget>
