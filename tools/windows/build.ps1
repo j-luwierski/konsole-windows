@@ -34,7 +34,7 @@ if (-not $SkipPackage) {
     Invoke-CraftChecked (@('--package') + $packageOptions + @('--options', '[Packager]PackageType=PortablePackager', 'konsole'))
     $archives = @(Get-ChildItem $OutputDirectory -Filter '*.zip')
     if ($archives.Count -eq 0) { throw 'Packaging did not produce a portable ZIP.' }
-    & python -m pip install zstandard==0.25.0
+    & python -m pip install zstandard==0.25.0 pefile==2024.8.26
     if ($LASTEXITCODE -ne 0) { throw 'Cannot install archive decompressor for file runtime.' }
     foreach ($archive in $archives) {
         & python (Join-Path $PSScriptRoot 'bundle-powershell.py') $archive.FullName
