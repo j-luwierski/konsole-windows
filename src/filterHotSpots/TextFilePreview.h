@@ -56,6 +56,7 @@ private:
     TextPreviewOptions _options;
     quint64 _generation = 0;
     bool _hoveringPath = false;
+    bool _enteredPopup = false;
 };
 }
 #endif

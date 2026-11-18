@@ -115,7 +115,7 @@ TextFilePreview::TextFilePreview(QWidget *owner)
     _leaveTimer.setSingleShot(true);
     connect(&_showTimer, &QTimer::timeout, this, &TextFilePreview::load);
     connect(&_leaveTimer, &QTimer::timeout, this, [this] {
-        if (!_hoveringPath && !_popup->geometry().contains(QCursor::pos())) {
+        if ((_enteredPopup || !_hoveringPath) && !_popup->geometry().contains(QCursor::pos())) {
             dismiss();
         }
     });
@@ -136,6 +136,9 @@ void TextFilePreview::hoverFile(const QString &path, const QPoint &position, con
     if (!options.enabled) {
         dismiss();
         return;
+    }
+    if (_popup->isVisible() && _enteredPopup && !_popup->geometry().contains(position)) {
+        dismiss();
     }
     _leaveTimer.stop();
     _hoveringPath = true;
@@ -169,6 +172,7 @@ void TextFilePreview::dismiss()
     _showTimer.stop();
     _leaveTimer.stop();
     _hoveringPath = false;
+    _enteredPopup = false;
     _popup->hide();
     _path.clear();
 }
@@ -211,6 +215,7 @@ void TextFilePreview::showContent(const TextPreviewContent &content)
     QPoint position = _anchor + QPoint(12, 16);
     position.setX(qBound(available.left(), position.x(), available.right() - size.width() + 1));
     position.setY(qBound(available.top(), position.y(), available.bottom() - size.height() + 1));
+    _enteredPopup = false;
     _popup->setGeometry(QRect(position, size));
     _popup->show();
     _popup->raise();
@@ -224,11 +229,14 @@ bool TextFilePreview::eventFilter(QObject *watched, QEvent *event)
         leavePath();
     } else if (watched == _popup && event->type() == QEvent::Enter) {
         _hoveringPath = false;
+        _enteredPopup = true;
         _leaveTimer.stop();
     } else if (_popup->isVisible() && (event->type() == QEvent::MouseMove || event->type() == QEvent::Leave)) {
         if (_popup->geometry().contains(QCursor::pos())) {
+            _enteredPopup = true;
+            _hoveringPath = false;
             _leaveTimer.stop();
-        } else if (!_hoveringPath && !_leaveTimer.isActive()) {
+        } else if ((_enteredPopup || !_hoveringPath) && !_leaveTimer.isActive()) {
             _leaveTimer.start(qBound(100, _options.leaveDelayMs, 2000));
         }
     }
