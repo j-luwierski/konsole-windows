@@ -72,7 +72,17 @@ przez ConPTY, również ze ścieżki zawierającej spacje.
 Zaznaczenie wykonuje się myszą. Kopiowanie i wklejanie jest też dostępne
 w menu kontekstowym. Ctrl+C zachowuje znaczenie przerwania programu.
 Skróty można zmieniać w konfiguracji skrótów Konsole.
-Windows nie udostępnia schowka zaznaczenia X11; używaj zwykłego schowka.
+Windows nie udostępnia natywnego schowka zaznaczenia X11. Port emuluje go
+wewnątrz procesu Konsole: zaznaczenie tekstu myszą aktualizuje drugi schowek,
+a kliknięcie środkowym przyciskiem wkleja jego tekst. Dostępny jest też
+skrót **Ctrl+Shift+Insert** (Wklej zaznaczenie). Działa między kartami i
+podziałami tego samego procesu; nie jest to globalny schowek innych aplikacji
+ani osobnych procesów Konsole i nie jest zapisywany po zamknięciu programu.
+Zwykły schowek Windows i Ctrl+Shift+C/V są niezależne. Opcja profilu
+„automatycznie kopiuj zaznaczenie” może dodatkowo kopiować do zwykłego schowka.
+W aplikacjach przechwytujących mysz użyj **Shift+środkowy przycisk**.
+W ustawieniach myszy profilu środkowy przycisk musi mieć wybrane wklejanie
+zaznaczenia (ustawienie domyślne), a nie zwykłego schowka.
 
 ## Testy backendu
 
