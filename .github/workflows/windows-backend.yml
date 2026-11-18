@@ -19,4 +19,5 @@ jobs:
           name: conpty-test-reports
           path: |
             build-windows-tests/conpty-results.xml
+            build-windows-tests/file-remote-results.xml
             build-windows-tests/Testing/Temporary/LastTest.log
