@@ -59,7 +59,7 @@ private Q_SLOTS:
         ConPtyProcess process;
         QByteArray output;
         connect(process.notifier(), &QIODevice::readyRead, this, [&] { output += process.readAll(); });
-        const auto script = WindowsShellIntegration::initializationScript() + QStringLiteral(R"PS(
+        const QString script = WindowsShellIntegration::initializationScript() + QStringLiteral(R"PS(
 if ((Get-PSReadLineKeyHandler | Where-Object Key -eq 'Tab').Function -ne 'Complete') { throw 'Tab binding not initialized' }
 if ((Get-PSReadLineKeyHandler | Where-Object Key -eq 'Ctrl+r').Function -ne 'ReverseSearchHistory') { throw 'Ctrl+R binding not initialized' }
 $expectedReadLine = Join-Path $PSHOME 'Modules/PSReadLine'

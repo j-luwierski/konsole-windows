@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.21)
 project(KonsoleWindowsBackendTests LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_AUTOMOC ON)
+# Match the Qt/KDE compile policy of the full application.
+add_compile_definitions(QT_NO_KEYWORDS QT_NO_CAST_FROM_ASCII QT_NO_CAST_FROM_BYTEARRAY
+    QT_NO_CAST_TO_ASCII QT_USE_QSTRINGBUILDER QT_NO_URL_CAST_FROM_STRING
+    QT_NO_FOREACH QT_NO_NARROWING_CONVERSIONS_IN_CONNECT)
 find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Widgets Concurrent Test)
 enable_testing()
 add_executable(WindowsProcessTest WindowsProcessTest.cpp)
