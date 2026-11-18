@@ -81,6 +81,21 @@ Write-Output 'konsole-readline-ready'
         QCOMPARE(process.write(changeDirectory.constData(), changeDirectory.size()), qint64(changeDirectory.size()));
         const QByteArray directoryReport = QByteArray("\x1b]7;") + QUrl::fromLocalFile(workingDirectory.path()).toEncoded();
         QTRY_VERIFY2_WITH_TIMEOUT(output.contains(directoryReport), output.constData(), 15000);
+        if (QFileInfo(shell).baseName().compare(QStringLiteral("pwsh"), Qt::CaseInsensitive) == 0) {
+            QFile listedFile(workingDirectory.filePath(QString::fromUtf8("listing name # żółć.txt")));
+            QVERIFY(listedFile.open(QIODevice::WriteOnly));
+            listedFile.write("value=listing\n");
+            listedFile.close();
+            const QByteArray link = QByteArray("\x1b]8;;") + QUrl::fromLocalFile(listedFile.fileName()).toEncoded();
+            for (const QByteArray command : {QByteArray("ls\r"), QByteArray("dir\r"), QByteArray("Get-ChildItem\r")}) {
+                const auto count = output.count(link);
+                QCOMPARE(process.write(command.constData(), command.size()), qint64(command.size()));
+                QTRY_VERIFY2_WITH_TIMEOUT(output.count(link) > count, output.constData(), 15000);
+            }
+            const QByteArray objectCheck("Get-ChildItem -File | ForEach-Object { ('konsole-object-'+'type:') + $_.GetType().Name }\r");
+            QCOMPARE(process.write(objectCheck.constData(), objectCheck.size()), qint64(objectCheck.size()));
+            QTRY_VERIFY2_WITH_TIMEOUT(output.contains("konsole-object-type:FileInfo"), output.constData(), 15000);
+        }
         process.kill();
     }
     void inputAndResize()

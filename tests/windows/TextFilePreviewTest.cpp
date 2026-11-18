@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "../../src/filterHotSpots/TextFilePreview.h"
+#include "../../src/filterHotSpots/FileMetadata.h"
 #include <QClipboard>
 #include <QCursor>
 #include <QFile>
@@ -47,6 +48,50 @@ private Q_SLOTS:
         QVERIFY2(identified.text.contains(QStringLiteral("PNG image data")), qPrintable(identified.text));
         QVERIFY(identified.text.contains(QStringLiteral("file:")));
         QVERIFY(identified.text.contains(QStringLiteral("bytes")));
+    }
+    void copyEntireContentsWithoutPreviewMetadata()
+    {
+        QTemporaryDir directory;
+        const QString path = directory.filePath(QString::fromUtf8("cały plik żółć.ini"));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        const QString contents = QString::fromUtf8("[ustawienia]\nwartość=żółć 😀\n") + QString(20000, QLatin1Char('x')) + QStringLiteral("\nEND\n");
+        QStringEncoder encoder(QStringConverter::Utf16LE);
+        file.write(QByteArray("\xff\xfe", 2) + QByteArray(encoder(contents)));
+        file.close();
+        QApplication::clipboard()->setText(QStringLiteral("previous clipboard"));
+        TextFilePreview::copyFileContents(path, 1024 * 1024);
+        QTRY_COMPARE_WITH_TIMEOUT(QApplication::clipboard()->text(), contents, 3000);
+    }
+    void metadataAndCleanClipboardPath()
+    {
+        QTemporaryDir directory;
+        const QString path = directory.filePath(QString::fromUtf8("config żółć.ini"));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("name=value\n");
+        file.close();
+        const auto description = FileMetadata::describe(path);
+        for (const auto &label : {QStringLiteral("Path:"), QStringLiteral("Size:"), QStringLiteral("Created:"),
+                                  QStringLiteral("Modified:"), QStringLiteral("Owner:"), QStringLiteral("Permissions")}) {
+            QVERIFY2(description.contains(label), qPrintable(description));
+        }
+#ifdef Q_OS_WIN
+        QVERIFY2(description.contains(QStringLiteral("Primary group:")), qPrintable(description));
+        QVERIFY2(description.contains(QStringLiteral("Full DACL (SDDL):")), qPrintable(description));
+#else
+        QVERIFY(description.contains(QStringLiteral("Group:")));
+#endif
+        QCOMPARE(FileMetadata::clipboardPath(path + QStringLiteral(":12:3")), QDir::toNativeSeparators(path));
+        auto localUrl = QUrl::fromLocalFile(path);
+        QCOMPARE(FileMetadata::localFilePath(localUrl), QDir::fromNativeSeparators(path));
+        localUrl.setHost(QStringLiteral("localhost"));
+        QCOMPARE(FileMetadata::localFilePath(localUrl), QDir::fromNativeSeparators(path));
+        localUrl.setHost(QStringLiteral("remote.invalid"));
+        QVERIFY(FileMetadata::localFilePath(localUrl).isEmpty());
+        const auto content = TextPreviewContent::read(path, 1024);
+        QCOMPARE(content.text, QStringLiteral("name=value\n"));
+        QVERIFY(content.metadata.contains(QStringLiteral("Modified:")));
     }
     void contentAndEncoding()
     {
@@ -113,7 +158,9 @@ private Q_SLOTS:
         QVERIFY(!preview.popup()->isVisible());
         QTRY_VERIFY_WITH_TIMEOUT(preview.popup()->isVisible(), 3000);
         QVERIFY(preview.popup()->windowFlags().testFlag(Qt::FramelessWindowHint));
-        QCOMPARE(preview.editor()->toPlainText(), fullText);
+        QVERIFY(preview.editor()->toPlainText().endsWith(fullText));
+        QVERIFY(preview.editor()->toPlainText().contains(QStringLiteral("Created:")));
+        QVERIFY(preview.editor()->toPlainText().contains(QStringLiteral("Permissions")));
         QVERIFY(preview.editor()->isReadOnly());
         QCOMPARE(preview.editor()->verticalScrollBarPolicy(), Qt::ScrollBarAlwaysOn);
         QVERIFY(preview.editor()->verticalScrollBar()->maximum() > 0);
@@ -126,7 +173,7 @@ private Q_SLOTS:
         QVERIFY(preview.editor()->verticalScrollBar()->value() > 0);
         preview.editor()->selectAll();
         preview.editor()->copy();
-        QCOMPARE(QApplication::clipboard()->text(), fullText);
+        QCOMPARE(QApplication::clipboard()->text(), preview.editor()->toPlainText());
         QCursor::setPos(anchor);
         QTest::mouseMove(&owner, owner.mapFromGlobal(anchor));
         preview.hoverFile(file.fileName(), anchor, options);

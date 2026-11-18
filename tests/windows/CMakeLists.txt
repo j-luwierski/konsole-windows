@@ -15,7 +15,8 @@ add_executable(SelectionClipboardTest SelectionClipboardTest.cpp)
 target_link_libraries(SelectionClipboardTest PRIVATE Qt6::Gui Qt6::Test)
 add_test(NAME SelectionClipboardTest COMMAND SelectionClipboardTest)
 add_executable(TextFilePreviewTest TextFilePreviewTest.cpp
-    ../../src/filterHotSpots/TextFilePreview.cpp ../../src/filterHotSpots/TextFilePreview.h)
+    ../../src/filterHotSpots/TextFilePreview.cpp ../../src/filterHotSpots/TextFilePreview.h
+    ../../src/filterHotSpots/FileMetadata.cpp ../../src/filterHotSpots/FileMetadata.h)
 target_link_libraries(TextFilePreviewTest PRIVATE Qt6::Widgets Qt6::Concurrent Qt6::Test)
 add_test(NAME TextFilePreviewTest COMMAND TextFilePreviewTest)
 set_tests_properties(TextFilePreviewTest PROPERTIES TIMEOUT 60)
@@ -24,6 +25,7 @@ if(UNIX)
     set_tests_properties(SelectionClipboardTest PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
 if(WIN32)
+    target_link_libraries(TextFilePreviewTest PRIVATE advapi32)
     add_executable(ConPtyTest ConPtyTest.cpp
         ../../src/ptyqt/conptyprocess.cpp ../../src/ptyqt/conptyprocess.h
         ../../src/ptyqt/iptyprocess.cpp ../../src/ptyqt/iptyprocess.h)
