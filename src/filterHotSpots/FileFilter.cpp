@@ -85,7 +85,7 @@ QString FileFilter::concatRegexPattern(QString wordCharacters) const
 
 QSharedPointer<HotSpot> FileFilter::newHotSpot(int startLine, int startColumn, int endLine, int endColumn, const QStringList &capturedTexts)
 {
-    if (_session.isNull()) {
+    if (_session.isNull() || _session->arguments().contains(QStringLiteral("--konsole-file-remote"))) {
         return nullptr;
     }
 
