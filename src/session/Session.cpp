@@ -294,13 +294,13 @@ bool Session::reportedWorkingUrlIsLocalFile()
 {
     return _reportedWorkingUrl.isLocalFile() // has "file://" prefix
         && (_reportedWorkingUrl.host().isEmpty() || _reportedWorkingUrl.host().compare(QSysInfo::machineHostName(), Qt::CaseInsensitive) == 0)
-        && QDir{_reportedWorkingUrl.path()}.exists();
+        && QDir{_reportedWorkingUrl.toLocalFile()}.exists();
 }
 
 QString Session::currentWorkingDirectory()
 {
     if (_reportedWorkingUrl.isValid() && reportedWorkingUrlIsLocalFile()) {
-        return _reportedWorkingUrl.path();
+        return _reportedWorkingUrl.toLocalFile();
     }
 
     // only returned cached value
