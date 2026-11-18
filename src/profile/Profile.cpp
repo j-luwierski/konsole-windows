@@ -11,6 +11,7 @@
 #include "Profile.h"
 
 // Qt
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <QFontDatabase>
@@ -221,6 +222,10 @@ static QString checkFile(const QStringList &dirList, const QString &filePath)
 
 static QString GetWindowPowerShell()
 {
+    const auto bundled = WindowsShellIntegration::bundledPowerShell(QCoreApplication::applicationDirPath());
+    if (!bundled.isEmpty()) {
+        return bundled;
+    }
     const auto modernPowerShell = QStandardPaths::findExecutable(QStringLiteral("pwsh.exe"));
     if (!modernPowerShell.isEmpty()) {
         return modernPowerShell;
