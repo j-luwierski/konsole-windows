@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "FileRemoteProcess.h"
+#include "FileRemoteConfig.h"
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
@@ -20,7 +21,7 @@ Process::~Process() { kill(); }
 bool Process::startProcess(const QString &, const QStringList &arguments, const QString &, QStringList, qint16 cols, qint16 rows)
 {
     if (m_pid || _finished || arguments.size() != 2 || arguments[0] != QStringLiteral("--konsole-file-remote")) { return false; }
-    const auto config = QJsonDocument::fromJson(QByteArray::fromBase64(arguments[1].toLatin1())).object();
+    const auto config = QJsonDocument::fromJson(connectionSnapshot(arguments[1])).object();
     const QString root = config.value(QStringLiteral("root")).toString();
     const QString host = config.value(QStringLiteral("host")).toString();
     const QByteArray key = QByteArray::fromHex(config.value(QStringLiteral("key")).toString().toLatin1());

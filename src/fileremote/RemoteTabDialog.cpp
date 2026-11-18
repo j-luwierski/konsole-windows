@@ -58,7 +58,7 @@ QByteArray Konsole::FileRemote::configureConnection(QWidget *parent, bool connec
     QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
     QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, [&] {
         static const QRegularExpression hex(QStringLiteral("^[a-fA-F0-9]{64}$"));
-        if (!QDir(folder->text()).exists() || !QRegularExpression(QStringLiteral("^[a-zA-Z0-9_-]{1,64}$")).match(host->text()).hasMatch() || (connectNow && !hex.match(key->text().trimmed()).hasMatch())) {
+        if (folder->text().trimmed().isEmpty() || !QDir(folder->text()).exists() || !QRegularExpression(QStringLiteral("^[a-zA-Z0-9_-]{1,64}$")).match(host->text()).hasMatch() || (connectNow && !hex.match(key->text().trimmed()).hasMatch())) {
             QMessageBox::warning(&dialog, i18n("Remote Tab"), i18n("Select an existing folder, a host ID using letters, digits, _ or -, and a valid pairing key.")); return;
         }
         dialog.accept();
