@@ -46,13 +46,28 @@ Zachowano obsługę skrótów i schowka z Konsole:
 | Uzupełnianie poleceń i ścieżek w PowerShell | Tab (styl Bash: Complete) |
 | Przeszukiwanie historii poleceń wstecz | Ctrl+R |
 
-Domyślny profil wybiera PowerShell 7 (`pwsh.exe`), jeśli jest dostępny,
-albo Windows PowerShell 5.1. Przy starcie automatycznie ładuje PSReadLine,
-konfiguruje Tab i Ctrl+R oraz zapis historii między sesjami. Konfiguracja
-jest wbudowana w EXE i działa także w portable ZIP; nie zmienia systemowego
-profilu PowerShella. Powłoki Windows PowerShell/PowerShell 7 muszą mieć
-moduł PSReadLine. W WSL i SSH obsługę tych klawiszy zapewnia zdalna powłoka;
+Portable zawiera PowerShell **7.6.10** z własnym środowiskiem .NET i modułem
+**PSReadLine 2.4.5** w katalogu `powershell`. Nie trzeba instalować PowerShella,
+.NET ani PSReadLine. Domyślny profil wybiera dołączoną powłokę przed wersjami
+systemowymi. Rozpakuj cały ZIP, zachowując obok siebie katalogi `bin` i
+`powershell`, i uruchom `bin/konsole.exe`. Folder można przenieść.
+
+Przy starcie profil ładuje PSReadLine z katalogu tej powłoki, konfiguruje
+Tab i Ctrl+R oraz zapis historii między sesjami. Nie zmienia systemowego
+profilu PowerShella. Ustawienia i historia mogą być zapisywane w profilu
+użytkownika Windows. Własne, wcześniej zapisane profile Konsole zachowują
+swoje polecenia; wybierz wbudowany profil, aby korzystać z dołączonej powłoki.
+Gdy brakuje kompletnego katalogu `powershell`, profil szuka zainstalowanego
+PowerShella 7, a następnie Windows PowerShell 5.1.
+W WSL i SSH obsługę tych klawiszy zapewnia zdalna powłoka;
 `cmd.exe` nie otrzymuje funkcji PSReadLine.
+
+`tools/windows/bundle-powershell.py` pobiera oficjalny ZIP Microsoftu,
+weryfikuje przypiętą sumę SHA256 i zachowuje licencje oraz informacje o
+komponentach zewnętrznych. `bundled-runtime.json` opisuje dołączone wersje.
+Budowanie kończy się testem PowerShella wyodrębnionego z gotowego ZIP:
+sprawdza wersje, źródło PSReadLine i rzeczywiste działanie Tab oraz Ctrl+R
+przez ConPTY, również ze ścieżki zawierającej spacje.
 
 Zaznaczenie wykonuje się myszą. Kopiowanie i wklejanie jest też dostępne
 w menu kontekstowym. Ctrl+C zachowuje znaczenie przerwania programu.
@@ -74,9 +89,9 @@ Obejmują kodowanie argumentów, środowisko, uruchamianie procesu, wejście,
 wyjście, kod zakończenia, zmianę rozmiaru i wielokrotne zamykanie.
 Nie zastępują kompilacji całej aplikacji i testów interfejsu.
 
-Lokalnie na Linux ARM64 przeszedł test WindowsProcessTest z Qt 6.2.4.
-Pełna konfiguracja aplikacji zatrzymała się na braku ECM 6.12/KDE Frameworks;
-testy ConPTY wymagają Windows i nie zostały tu wykonane.
+Testy ConPTY i pełna kompilacja wymagają Windows; workflow wykonuje je
+przed opublikowaniem artefaktu. Interfejs i schowek wymagają osobnej
+weryfikacji na komputerze użytkownika.
 
 ## Wymagane sprawdzenie przed wydaniem
 
