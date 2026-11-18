@@ -12,6 +12,7 @@
 
 #include <QList>
 #include <QPoint>
+#include <QPointer>
 #include <QString>
 
 class KFileItem;
