@@ -93,3 +93,8 @@ bool Channel::receive(QJsonObject &message)
     if (!QFile::remove(path)) { _error = QStringLiteral("Cannot acknowledge packet (delete permission required)"); return false; }
     ++_received; return true;
 }
+
+bool Channel::hasCapacity(int limit) const
+{
+    return QDir(_directory).entryList({QStringLiteral("*.json")}, QDir::Files).size() < limit;
+}

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "FileRemoteHost.h"
+#include "../filterHotSpots/TextPreviewContent.h"
 #include "../ptyqt/windowsshellintegration.h"
 #include <QCommandLineParser>
 #include <QCoreApplication>
@@ -61,6 +62,7 @@ int main(int argc, char **argv)
         err << "Keep the pairing key outside the exchange folder\n"; return 1;
     }
     options.key = QByteArray::fromHex(keyHex);
+    options.fileExecutable = Konsole::TextPreviewContent::fileCommand();
     options.shell = parser.value(QStringLiteral("shell"));
     if (options.shell.isEmpty()) { options.shell = WindowsShellIntegration::bundledPowerShell(QCoreApplication::applicationDirPath()); }
     if (options.shell.isEmpty()) { err << "Bundled PowerShell missing; provide --shell\n"; return 1; }

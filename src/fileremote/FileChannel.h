@@ -9,6 +9,7 @@ class Channel {
 public:
     Channel(QString directory, QByteArray key, QString direction);
     bool send(const QJsonObject &message);
+    bool hasCapacity(int limit = 128) const;
     // false + empty error means no next message yet.
     bool receive(QJsonObject &message);
     QString error() const { return _error; }

@@ -10,7 +10,7 @@
 #include <vector>
 namespace Konsole::FileRemote {
 struct HostOptions {
-    QString root, host, shell, workingDirectory, ledgerDirectory;
+    QString root, host, shell, workingDirectory, ledgerDirectory, fileExecutable;
     QStringList arguments;
     QByteArray key;
     int pollMs = 50, timeoutMs = 30000, maximumSessions = 4;
@@ -26,6 +26,10 @@ private:
         std::unique_ptr<ConPtyProcess> process;
         QElapsedTimer lastPeer, heartbeat;
         QByteArray pending;
+        QByteArray fileReply;
+        QString fileRequestId;
+        qsizetype fileOffset = 0;
+        bool fileBusy = false;
         bool finished = false, exiting = false;
         int exitCode = 0;
         QString error;
@@ -34,6 +38,8 @@ private:
     void acceptRequests();
     void finish(Session &session, const QString &error = {});
     void flush(Session &session);
+    void readFile(Session &session, const QJsonObject &packet);
+    void flushFile(Session &session);
     HostOptions _options;
     QTimer _timer;
     std::unique_ptr<QLockFile> _lock;

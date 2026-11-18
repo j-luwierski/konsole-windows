@@ -2,6 +2,10 @@
 #pragma once
 #include "../ptyqt/iptyprocess.h"
 #include "FileChannel.h"
+#include "../filterHotSpots/TextPreviewContent.h"
+#include <QHash>
+#include <QPointer>
+#include <functional>
 #include <QElapsedTimer>
 #include <QJsonObject>
 #include <QTimer>
@@ -21,6 +25,9 @@ private:
 };
 class Process : public IPtyProcess {
 public:
+    using FileCallback = std::function<void(const TextPreviewContent &)>;
+    static void requestFile(const QStringList &connectionArguments, const QString &path, qint64 limit,
+                            bool showInfo, bool textOnly, QObject *receiver, FileCallback callback);
     Process();
     ~Process() override;
     bool startProcess(const QString &, const QStringList &, const QString &, QStringList, qint16, qint16) override;
@@ -38,6 +45,16 @@ private:
     void poll();
     void finish(int exitCode, const QString &reason = {});
     bool send(const QJsonObject &message);
+    struct FileRequest {
+        QPointer<QObject> receiver;
+        FileCallback callback;
+        QByteArray bytes;
+        qint64 limit;
+        QElapsedTimer elapsed;
+    };
+    QHash<QString, FileRequest> _fileRequests;
+    QString _connectionId;
+    bool _fileRpc = false;
     QTimer _timer;
     InputBuffer _buffer;
     std::unique_ptr<Channel> _out, _in;

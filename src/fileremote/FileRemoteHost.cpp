@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "FileRemoteHost.h"
+#include "../filterHotSpots/TextPreviewContent.h"
+#include <QFutureWatcher>
+#include <QtConcurrentRun>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -93,9 +96,13 @@ void Host::acceptRequests()
             }
         });
         s->lastPeer.start(); s->heartbeat.start();
-        if (!s->output->send({{QStringLiteral("type"), QStringLiteral("accepted")}})) { continue; }
+        if (!s->output->send({{QStringLiteral("type"), QStringLiteral("accepted")}, {QStringLiteral("fileRpc"), 1}})) { continue; }
         _sessions.push_back(std::move(session)); ++active;
-        if (!s->process->startProcess(_options.shell, _options.arguments, _options.workingDirectory, {}, qint16(cols), qint16(rows))) {
+        QStringList environment;
+        if (!_options.fileExecutable.isEmpty()) {
+            environment << QStringLiteral("KONSOLE_PORTABLE_FILE_DIRECTORY=") + QFileInfo(_options.fileExecutable).absolutePath();
+        }
+        if (!s->process->startProcess(_options.shell, _options.arguments, _options.workingDirectory, environment, qint16(cols), qint16(rows))) {
             finish(*s, s->process->lastError()); continue;
         }
         if (!initialInput.isEmpty()) { s->process->write(initialInput.constData(), int(initialInput.size())); }
@@ -136,7 +143,8 @@ void Host::poll()
             s.lastPeer.restart();
             const QString type = packet.value(QStringLiteral("type")).toString();
             if (type == QStringLiteral("close")) { finish(s); break; }
-            if (type == QStringLiteral("input")) {
+            if (type == QStringLiteral("file-request")) { readFile(s, packet); }
+            else if (type == QStringLiteral("input")) {
                 const QByteArray data = QByteArray::fromBase64(packet.value(QStringLiteral("data")).toString().toLatin1());
                 if (s.process->write(data.constData(), int(data.size())) != data.size()) { finish(s, QStringLiteral("Cannot write remote console input")); break; }
             } else if (type == QStringLiteral("resize")) {
@@ -147,6 +155,7 @@ void Host::poll()
         if (s.finished) { continue; }
         if (s.lastPeer.elapsed() > qBound(5000, _options.timeoutMs, 600000)) { finish(s, QStringLiteral("Client heartbeat timed out")); continue; }
         flush(s);
+        flushFile(s);
         if (!s.finished && s.heartbeat.elapsed() >= 1000) {
             if (!s.output->send({{QStringLiteral("type"), QStringLiteral("heartbeat")}})) { finish(s, s.output->error()); }
             s.heartbeat.restart();
@@ -154,4 +163,50 @@ void Host::poll()
     }
     _sessions.erase(std::remove_if(_sessions.begin(), _sessions.end(), [](const auto &s) { return s->finished; }), _sessions.end());
     acceptRequests();
+}
+
+void Host::readFile(Session &s, const QJsonObject &packet)
+{
+    const QString id = packet.value(QStringLiteral("id")).toString();
+    if (QUuid(id).isNull()) { return; }
+    if (s.fileBusy || !s.fileReply.isEmpty()) {
+        const QByteArray reply = QJsonDocument(QJsonObject{{QStringLiteral("error"), QStringLiteral("Previous file request is still in progress; hover again after it finishes")}}).toJson(QJsonDocument::Compact);
+        s.output->send({{QStringLiteral("type"), QStringLiteral("file-response")}, {QStringLiteral("id"), id},
+            {QStringLiteral("data"), QString::fromLatin1(reply.toBase64())}, {QStringLiteral("final"), true}});
+        return;
+    }
+    const QString path = TextPreviewContent::pathWithoutLocation(packet.value(QStringLiteral("path")).toString());
+    const qint64 limit = qBound(qint64(1), packet.value(QStringLiteral("limit")).toString().toLongLong(), qint64(256) * 1024 * 1024);
+    const bool textOnly = packet.value(QStringLiteral("textOnly")).toBool();
+    const bool showInfo = packet.value(QStringLiteral("showInfo")).toBool();
+    const QString executable = _options.fileExecutable;
+    s.fileBusy = true;
+    auto *watcher = new QFutureWatcher<TextPreviewContent>(s.process.get());
+    Session *session = &s;
+    connect(watcher, &QFutureWatcher<TextPreviewContent>::finished, s.process.get(), [watcher, session, id] {
+        const auto result = watcher->result(); watcher->deleteLater();
+        if (session->finished) { return; }
+        session->fileBusy = false; session->fileRequestId = id; session->fileOffset = 0;
+        session->fileReply = QJsonDocument(QJsonObject{{QStringLiteral("text"), result.text}, {QStringLiteral("error"), result.error},
+            {QStringLiteral("binary"), result.binary}, {QStringLiteral("metadata"), result.metadata}}).toJson(QJsonDocument::Compact);
+    });
+    watcher->setFuture(QtConcurrent::run([path, limit, textOnly, showInfo, executable] {
+        if (!QDir::isAbsolutePath(path) || QDir::fromNativeSeparators(path).startsWith(QStringLiteral("//"))) {
+            return TextPreviewContent{{}, QStringLiteral("Remote file access requires an absolute host-local path")};
+        }
+        return textOnly ? TextPreviewContent::readText(path, limit) : TextPreviewContent::read(path, limit, showInfo, executable);
+    }));
+}
+void Host::flushFile(Session &s)
+{
+    for (int i = 0; i < 8 && !s.fileReply.isEmpty() && !s.finished && s.output->hasCapacity(128); ++i) {
+        const QByteArray bytes = s.fileReply.mid(s.fileOffset, 32768);
+        const bool final = s.fileOffset + bytes.size() == s.fileReply.size();
+        if (!s.output->send({{QStringLiteral("type"), QStringLiteral("file-response")}, {QStringLiteral("id"), s.fileRequestId},
+            {QStringLiteral("data"), QString::fromLatin1(bytes.toBase64())}, {QStringLiteral("final"), final}})) {
+            finish(s, s.output->error()); return;
+        }
+        s.fileOffset += bytes.size();
+        if (final) { s.fileReply.clear(); s.fileOffset = 0; }
+    }
 }
