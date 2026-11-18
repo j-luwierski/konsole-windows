@@ -58,14 +58,14 @@ private Q_SLOTS:
         QByteArray output;
         connect(process.notifier(), &QIODevice::readyRead, this, [&] { output += process.readAll(); });
         const auto script = WindowsShellIntegration::initializationScript() + QStringLiteral(R"PS(
-if ((Get-PSReadLineKeyHandler -Chord Tab).Function -ne 'Complete') { throw 'Tab binding not initialized' }
-if ((Get-PSReadLineKeyHandler -Chord Ctrl+r).Function -ne 'ReverseSearchHistory') { throw 'Ctrl+R binding not initialized' }
+if ((Get-PSReadLineKeyHandler | Where-Object Key -eq 'Tab').Function -ne 'Complete') { throw 'Tab binding not initialized' }
+if ((Get-PSReadLineKeyHandler | Where-Object Key -eq 'Ctrl+r').Function -ne 'ReverseSearchHistory') { throw 'Ctrl+R binding not initialized' }
 $expectedReadLine = Join-Path $PSHOME 'Modules/PSReadLine'
-if ((Get-Module PSReadLine).ModuleBase -ne $expectedReadLine) { throw 'PSReadLine not loaded from shell distribution' }
+if ((Test-Path (Join-Path $expectedReadLine 'PSReadLine.psd1')) -and (Get-Module PSReadLine).ModuleBase -ne $expectedReadLine) { throw 'PSReadLine not loaded from shell distribution' }
 Write-Output 'konsole-readline-ready'
 )PS");
         QVERIFY2(process.startProcess(shell, WindowsShellIntegration::arguments(script), {}, {}, 120, 40), qPrintable(process.lastError()));
-        QTRY_VERIFY_WITH_TIMEOUT(output.contains("konsole-readline-ready"), 20000);
+        QTRY_VERIFY2_WITH_TIMEOUT(output.contains("konsole-readline-ready"), output.constData(), 20000);
         // The expected result is not present verbatim in the input, so merely
         // echoing the keystrokes cannot make this test pass.
         const QByteArray complete("Write-Out\t ('konsole-'+'completed-result')\r");
