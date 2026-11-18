@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QPlainTextEdit>
 #include <QScrollBar>
+#include <QStandardPaths>
 #include <QRegularExpression>
 #include <QStringConverter>
 #include <QTemporaryDir>
@@ -25,6 +26,27 @@ private Q_SLOTS:
             QVERIFY2(match.hasMatch(), qPrintable(path));
             QCOMPARE(match.captured(), path);
         }
+    }
+    void fileIdentificationFallback()
+    {
+        QTemporaryDir directory;
+        const QString path = directory.filePath(QString::fromUtf8("typ pliku żółć 😀.data"));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(QByteArray::fromBase64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=="));
+        file.close();
+        const auto disabled = TextPreviewContent::read(path, 4096, false);
+        QVERIFY(disabled.binary);
+        QVERIFY(!disabled.error.isEmpty());
+        QString executable = qEnvironmentVariable("KONSOLE_TEST_FILE_EXE");
+        if (executable.isEmpty()) { executable = TextPreviewContent::fileCommand(); }
+        if (executable.isEmpty()) { QSKIP("Native file runtime is tested after assembling the portable ZIP"); }
+        const auto identified = TextPreviewContent::read(path, 4096, true, executable);
+        QVERIFY(identified.error.isEmpty());
+        QVERIFY(!identified.binary);
+        QVERIFY2(identified.text.contains(QStringLiteral("PNG image data")), qPrintable(identified.text));
+        QVERIFY(identified.text.contains(QStringLiteral("file:")));
+        QVERIFY(identified.text.contains(QStringLiteral("bytes")));
     }
     void contentAndEncoding()
     {
