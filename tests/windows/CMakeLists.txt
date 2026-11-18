@@ -24,7 +24,25 @@ if(UNIX)
     set_tests_properties(TextFilePreviewTest PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     set_tests_properties(SelectionClipboardTest PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
+add_executable(FileChannelTest FileChannelTest.cpp
+    ../../src/fileremote/FileChannel.cpp ../../src/fileremote/FileRemoteProcess.cpp
+    ../../src/ptyqt/iptyprocess.cpp)
+target_link_libraries(FileChannelTest PRIVATE Qt6::Core Qt6::Test)
+add_test(NAME FileChannelTest COMMAND FileChannelTest)
 if(WIN32)
+    add_executable(FileRemoteHostExecutable ../../src/fileremote/hostmain.cpp
+        ../../src/fileremote/FileRemoteHost.cpp ../../src/fileremote/FileChannel.cpp
+        ../../src/ptyqt/conptyprocess.cpp ../../src/ptyqt/iptyprocess.cpp)
+    set_target_properties(FileRemoteHostExecutable PROPERTIES OUTPUT_NAME konsole-file-host)
+    target_link_libraries(FileRemoteHostExecutable PRIVATE Qt6::Core)
+    target_compile_definitions(FileRemoteHostExecutable PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+    add_executable(FileRemoteHostTest FileRemoteHostTest.cpp
+        ../../src/fileremote/FileRemoteHost.cpp ../../src/fileremote/FileRemoteProcess.cpp ../../src/fileremote/FileChannel.cpp
+        ../../src/ptyqt/conptyprocess.cpp ../../src/ptyqt/iptyprocess.cpp)
+    target_link_libraries(FileRemoteHostTest PRIVATE Qt6::Core Qt6::Test)
+    target_compile_definitions(FileRemoteHostTest PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+    add_test(NAME FileRemoteHostTest COMMAND FileRemoteHostTest -o file-remote-results.xml,xml -o -,txt)
+    set_tests_properties(FileRemoteHostTest PROPERTIES TIMEOUT 150 ENVIRONMENT "KONSOLE_TEST_HOST_BUILD=$<TARGET_FILE:FileRemoteHostExecutable>")
     target_link_libraries(TextFilePreviewTest PRIVATE advapi32)
     add_executable(ConPtyTest ConPtyTest.cpp
         ../../src/ptyqt/conptyprocess.cpp ../../src/ptyqt/conptyprocess.h
