@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "FileMetadata.h"
-#include "TextFilePreview.h"
+#include "TextPreviewContent.h"
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -21,11 +21,11 @@
 #endif
 using namespace Konsole;
 
-QString FileMetadata::localFilePath(QUrl url)
+QString FileMetadata::localFilePath(QUrl url, bool remoteHost)
 {
     if (!url.isLocalFile()) { return {}; }
     const QString host = url.host();
-    if (!host.isEmpty() && host.compare(QLatin1String("localhost"), Qt::CaseInsensitive) != 0
+    if (!remoteHost && !host.isEmpty() && host.compare(QLatin1String("localhost"), Qt::CaseInsensitive) != 0
         && host.compare(QSysInfo::machineHostName(), Qt::CaseInsensitive) != 0) { return {}; }
     url.setHost(QString());
     return url.toLocalFile();
@@ -122,7 +122,7 @@ QString FileMetadata::describe(const QString &path)
         return value.isValid() ? value.toLocalTime().toString(Qt::ISODateWithMs) : QObject::tr("Unavailable");
     };
     QString text = QObject::tr("Path: %1\nType: %2\nSize: %3 bytes (%4)\nCreated: %5\nModified: %6\n")
-        .arg(clipboardPath(path), QMimeDatabase().mimeTypeForFile(info).name()).arg(info.size())
+        .arg(clipboardPath(path), QMimeDatabase().mimeTypeForFile(info.absoluteFilePath(), QMimeDatabase::MatchContent).name()).arg(info.size())
         .arg(QLocale().formattedDataSize(info.size()), date(info.birthTime()), date(info.lastModified()));
 #ifdef Q_OS_WIN
     text += securityDescription(info.absoluteFilePath());

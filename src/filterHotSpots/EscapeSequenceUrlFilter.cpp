@@ -40,7 +40,7 @@ void EscapeSequenceUrlFilter::process()
 
         const int beginRow = escapedUrl.begin.row - sWindow->currentLine();
         const int endRow = escapedUrl.end.row - sWindow->currentLine();
-        const QString localPath = FileMetadata::localFilePath(QUrl(escapedUrl.url));
+        const QString localPath = FileMetadata::localFilePath(QUrl(escapedUrl.url), _session && _session->arguments().contains(QStringLiteral("--konsole-file-remote")));
         QSharedPointer<HotSpot> spot;
         if (!localPath.isEmpty()) {
             spot.reset(new FileFilterHotSpot(beginRow, escapedUrl.begin.col, endRow, escapedUrl.end.col,

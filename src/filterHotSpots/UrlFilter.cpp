@@ -123,10 +123,7 @@ QSharedPointer<HotSpot> UrlFilter::newHotSpot(int startLine, int startColumn, in
     }
     texts << str0;
 
-    const QString localPath = FileMetadata::localFilePath(QUrl(str0));
-    if (_session && !localPath.isEmpty() && _session->arguments().contains(QStringLiteral("--konsole-file-remote"))) {
-        return nullptr;
-    }
+    const QString localPath = FileMetadata::localFilePath(QUrl(str0), _session && _session->arguments().contains(QStringLiteral("--konsole-file-remote")));
     if (_session && !localPath.isEmpty()) {
         return QSharedPointer<HotSpot>(new FileFilterHotSpot(startLine, startColumn, endLine, endColumn, texts, localPath, _session));
     }

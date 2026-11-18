@@ -2,6 +2,8 @@
 #ifndef KONSOLE_TEXTFILEPREVIEW_H
 #define KONSOLE_TEXTFILEPREVIEW_H
 
+#include "TextPreviewContent.h"
+#include <functional>
 #include <QObject>
 #include <QPoint>
 #include <QTimer>
@@ -20,26 +22,18 @@ struct TextPreviewOptions {
     int height = 420;
     int maximumMiB = 16;
 };
-struct TextPreviewContent {
-    QString text;
-    QString error;
-    bool binary = false;
-    QString metadata;
-    static TextPreviewContent read(const QString &path, qint64 maximumBytes, bool showFileInfo = false, const QString &fileExecutable = {});
-    static TextPreviewContent readText(const QString &path, qint64 maximumBytes);
-    static QString fileCommand();
-    static QString pathWithoutLocation(QString path);
-    static QString windowsPathPattern();
-};
+
 
 class TextFilePreview : public QObject
 {
     Q_OBJECT
 public:
+    using Completion = std::function<void(const TextPreviewContent &)>;
+    using Loader = std::function<void(const QString &, qint64, bool, bool, QObject *, Completion)>;
     explicit TextFilePreview(QWidget *owner);
     static TextFilePreview *forWidget(QWidget *owner);
-    static void copyFileContents(const QString &path, qint64 maximumBytes, QWidget *messageParent = nullptr);
-    void hoverFile(const QString &path, const QPoint &globalPosition, const TextPreviewOptions &options);
+    static void copyFileContents(const QString &path, qint64 maximumBytes, QWidget *messageParent = nullptr, Loader loader = {});
+    void hoverFile(const QString &path, const QPoint &globalPosition, const TextPreviewOptions &options, Loader loader = {}, const QString &sourceId = {});
     void leavePath();
     void dismiss();
     QWidget *popup() const;
@@ -56,7 +50,8 @@ private:
     QPlainTextEdit *_editor;
     QTimer _showTimer;
     QTimer _leaveTimer;
-    QString _path;
+    QString _path, _sourceId;
+    Loader _loader;
     QPoint _anchor;
     TextPreviewOptions _options;
     quint64 _generation = 0;

@@ -8,6 +8,9 @@
 #include "FileFilterHotspot.h"
 #include "TextFilePreview.h"
 #include "FileMetadata.h"
+#ifdef Q_OS_WIN
+#include "fileremote/FileRemoteProcess.h"
+#endif
 
 #include <QAction>
 #include <QApplication>
@@ -64,6 +67,8 @@ void FileFilterHotSpot::activate(QObject *)
     if (!_session) { // The Session is dead, nothing to do
         return;
     }
+
+    if (isRemote()) { return; }
 
     QString editorExecPath;
     int firstBlankIdx = -1;
@@ -182,11 +187,21 @@ QList<QAction *> FileFilterHotSpot::actions()
     });
     QList<QAction *> result{action};
     const QString path = TextPreviewContent::pathWithoutLocation(_filePath);
-    if (QFileInfo(path).isFile()) {
+    if (isRemote() || QFileInfo(path).isFile()) {
         auto *copyContents = new QAction(i18n("Copy Entire File Contents"), this);
         copyContents->setIcon(QIcon::fromTheme(QStringLiteral("edit-copy")));
-        connect(copyContents, &QAction::triggered, this, [path] {
+        connect(copyContents, &QAction::triggered, this, [this, path] {
             const qint64 maximum = qBound(1, KonsoleSettings::self()->textFilePreviewMaximumMiB(), 256) * qint64(1024 * 1024);
+#ifdef Q_OS_WIN
+            if (isRemote()) {
+                const auto arguments = _session->arguments();
+                TextFilePreview::copyFileContents(path, maximum, QApplication::activeWindow(),
+                    [arguments](const QString &file, qint64 limit, bool info, bool textOnly, QObject *receiver, TextFilePreview::Completion callback) {
+                        FileRemote::Process::requestFile(arguments, file, limit, info, textOnly, receiver, std::move(callback));
+                    });
+                return;
+            }
+#endif
             TextFilePreview::copyFileContents(path, maximum, QApplication::activeWindow());
         });
         result << copyContents;
@@ -196,6 +211,7 @@ QList<QAction *> FileFilterHotSpot::actions()
 
 QList<QAction *> FileFilterHotSpot::setupMenu(QMenu *menu)
 {
+    if (isRemote()) { return {}; }
     if (!_menuActions)
         _menuActions = new KFileItemActions;
     const QList<QAction *> currentActions = menu->actions();
@@ -224,7 +240,7 @@ QPointer<KIO::PreviewJob> FileFilterHotSpot::_previewJob;
 
 void FileFilterHotSpot::requestThumbnail(Qt::KeyboardModifiers modifiers, const QPoint &pos)
 {
-    if (!KonsoleSettings::self()->enableThumbnails()) {
+    if (isRemote() || KonsoleSettings::self()->enableTextFilePreviews() || !KonsoleSettings::self()->enableThumbnails()) {
         return;
     }
 
@@ -333,6 +349,16 @@ void FileFilterHotSpot::mouseMoveEvent(TerminalDisplay *td, QMouseEvent *ev)
     options.height = settings->textFilePreviewHeight();
     options.maximumMiB = settings->textFilePreviewMaximumMiB();
     _textPreview = TextFilePreview::forWidget(td);
+#ifdef Q_OS_WIN
+    if (isRemote()) {
+        const auto arguments = _session->arguments();
+        _textPreview->hoverFile(_filePath, ev->globalPosition().toPoint(), options,
+            [arguments](const QString &path, qint64 limit, bool info, bool textOnly, QObject *receiver, TextFilePreview::Completion callback) {
+                FileRemote::Process::requestFile(arguments, path, limit, info, textOnly, receiver, std::move(callback));
+            }, arguments.join(QLatin1Char(' ')));
+        return;
+    }
+#endif
     _textPreview->hoverFile(_filePath, ev->globalPosition().toPoint(), options);
 }
 
@@ -353,7 +379,7 @@ void FileFilterHotSpot::keyPressEvent(Konsole::TerminalDisplay *td, QKeyEvent *e
 
 bool FileFilterHotSpot::hasDragOperation() const
 {
-    return true;
+    return !isRemote();
 }
 
 void FileFilterHotSpot::startDrag(TerminalDisplay *td, QPoint dragPosition)
@@ -368,3 +394,8 @@ void FileFilterHotSpot::startDrag(TerminalDisplay *td, QPoint dragPosition)
 }
 
 #include "moc_FileFilterHotspot.cpp"
+
+bool FileFilterHotSpot::isRemote() const
+{
+    return _session && _session->arguments().contains(QStringLiteral("--konsole-file-remote"));
+}

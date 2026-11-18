@@ -6,7 +6,7 @@
 namespace Konsole
 {
 struct FileMetadata {
-    static QString localFilePath(QUrl url);
+    static QString localFilePath(QUrl url, bool remoteHost = false);
     static QString describe(const QString &path);
     static QString clipboardPath(const QString &path);
 };

@@ -68,6 +68,7 @@ public:
     void keyPressEvent(TerminalDisplay *td, QKeyEvent *ev) override;
 
 private:
+    bool isRemote() const;
     void openWithSysDefaultApp(const QString &filePath) const;
     void openWithEditorFromProfile(const QString &fullCmd, const QString &path) const;
 

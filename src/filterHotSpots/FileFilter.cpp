@@ -85,11 +85,18 @@ QString FileFilter::concatRegexPattern(QString wordCharacters) const
 
 QSharedPointer<HotSpot> FileFilter::newHotSpot(int startLine, int startColumn, int endLine, int endColumn, const QStringList &capturedTexts)
 {
-    if (_session.isNull() || _session->arguments().contains(QStringLiteral("--konsole-file-remote"))) {
+    if (_session.isNull()) {
         return nullptr;
     }
 
 #ifdef Q_OS_WIN
+    if (_session->arguments().contains(QStringLiteral("--konsole-file-remote"))) {
+        const QString candidate = capturedTexts.first();
+        if (!candidate.contains(QLatin1Char('/')) && !candidate.contains(QLatin1Char('\\'))
+            && !candidate.contains(QLatin1Char('.')) && !candidate.startsWith(QLatin1Char('"')) && !candidate.startsWith(QLatin1Char('\''))) {
+            return nullptr;
+        }
+    }
     static const QRegularExpression locationSuffix(QStringLiteral(R"((:\d+(?::\d+)?:?|\(\d+(?:,\d+)?\)\]?)$)"));
     const QString location = locationSuffix.match(capturedTexts.first()).captured();
     QString path = TextPreviewContent::pathWithoutLocation(capturedTexts.first());
@@ -101,7 +108,7 @@ QSharedPointer<HotSpot> FileFilter::newHotSpot(int startLine, int startColumn, i
     if (QDir::isRelativePath(path)) {
         path = QDir(_dirPath).filePath(path);
     }
-    if (!QFileInfo(path).isFile() && !QFileInfo(path).isDir()) {
+    if (!_session->arguments().contains(QStringLiteral("--konsole-file-remote")) && !QFileInfo(path).isFile() && !QFileInfo(path).isDir()) {
         return nullptr;
     }
     return QSharedPointer<HotSpot>(new FileFilterHotSpot(startLine, startColumn, endLine, endColumn, capturedTexts, path + location, _session));
@@ -163,6 +170,9 @@ QSharedPointer<HotSpot> FileFilter::newHotSpot(int startLine, int startColumn, i
 
 void FileFilter::process()
 {
+    if (_session->arguments().contains(QStringLiteral("--konsole-file-remote"))) {
+        _dirPath = _session->currentWorkingDirectory(); RegExpFilter::process(); return;
+    }
     const QDir dir(_session->currentWorkingDirectory());
     // Do not re-process.
     if (_dirPath != dir.canonicalPath() + QLatin1Char('/')) {
