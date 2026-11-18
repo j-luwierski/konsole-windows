@@ -34,6 +34,25 @@ if (-not $SkipPackage) {
     Invoke-CraftChecked (@('--package') + $packageOptions + @('--options', '[Packager]PackageType=PortablePackager', 'konsole'))
     $archives = @(Get-ChildItem $OutputDirectory -Filter '*.zip')
     if ($archives.Count -eq 0) { throw 'Packaging did not produce a portable ZIP.' }
+    foreach ($archive in $archives) {
+        & python (Join-Path $PSScriptRoot 'bundle-powershell.py') $archive.FullName
+        if ($LASTEXITCODE -ne 0) { throw 'Bundling PowerShell failed.' }
+        # Exercise the runtime extracted from the final ZIP, including a path with spaces.
+        $portableTest = Join-Path ([IO.Path]::GetTempPath()) 'Konsole portable runtime test'
+        Remove-Item $portableTest -Recurse -Force -ErrorAction SilentlyContinue
+        Expand-Archive -LiteralPath $archive.FullName -DestinationPath $portableTest
+        $env:KONSOLE_TEST_BUNDLED_PWSH = Join-Path $portableTest 'powershell/pwsh.exe'
+        try {
+            & $env:KONSOLE_TEST_BUNDLED_PWSH -NoLogo -NoProfile -Command '$ErrorActionPreference="Stop"; Import-Module (Join-Path $PSHOME "Modules/PSReadLine/PSReadLine.psd1") -Force; if ($PSVersionTable.PSVersion.ToString() -ne "7.6.10") { throw "Unexpected bundled PowerShell" }; if ((Get-Module PSReadLine).Version.ToString() -ne "2.4.5") { throw "Unexpected PSReadLine" }; $PSVersionTable.PSVersion; Get-Module PSReadLine'
+            if ($LASTEXITCODE -ne 0) { throw 'Bundled runtime validation failed.' }
+            & ctest --test-dir $testBuild --output-on-failure --output-junit (Join-Path $OutputDirectory 'portable-runtime-tests.xml')
+            if ($LASTEXITCODE -ne 0) { throw 'Portable PowerShell integration tests failed.' }
+            Copy-Item (Join-Path $testBuild 'conpty-results.xml') (Join-Path $OutputDirectory 'portable-conpty-results.xml')
+        } finally {
+            Remove-Item Env:KONSOLE_TEST_BUNDLED_PWSH -ErrorAction SilentlyContinue
+            Remove-Item $portableTest -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
     if ($WithInstaller) {
         Invoke-CraftChecked @('nsis')
         Invoke-CraftChecked (@('--package') + $packageOptions + @('--options', '[Packager]PackageType=NullsoftInstallerPackager', 'konsole'))
