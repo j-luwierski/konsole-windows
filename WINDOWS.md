@@ -125,6 +125,42 @@ są lokalne ścieżki Windows i ścieżki względne; wbudowany PowerShell zgłas
 bieżący katalog po zmianie przez `cd`. Podgląd nie pobiera plików przez SSH,
 HTTP ani UNC. Nie uruchamia treści pliku i nie renderuje HTML.
 
+## Wyniki ls/dir, metadane i menu linków
+
+W dołączonym PowerShellu 7 domyślne tabele `Get-ChildItem`, `ls` i `dir`
+mają nazwy plików i folderów jako linki OSC 8 do pełnej lokalnej ścieżki.
+Nazwy ze spacjami i polskimi znakami działają bez ręcznego dopisywania
+cudzysłowów. Link zachowuje katalog z chwili wyświetlenia listy, także po
+późniejszym `cd`. Polecenia nadal zwracają obiekty FileInfo/DirectoryInfo:
+potoki, filtrowanie, Select-Object i eksport danych pozostają dostępne.
+Zmienia się tylko domyślny widok tabeli plików. Jawne własne formatowanie
+może wyświetlać zwykły tekst zamiast linków. Integracja dotyczy PowerShella
+7.2+; listing z cmd.exe lub Windows PowerShell 5.1 korzysta ze zwykłego
+rozpoznawania widocznych ścieżek.
+
+Podgląd pokazuje metadane także wtedy, gdy można wyświetlić tekst:
+pełną ścieżkę, MIME, rozmiar w bajtach i czytelnych jednostkach, datę
+utworzenia i modyfikacji, właściciela, grupę oraz prawa. Na Windows są to
+rzeczywisty właściciel, grupa podstawowa i wpisy ACL systemu Windows,
+łącznie z pełnym DACL w zapisie SDDL. Nie są przedstawiane jako uniksowe
+bity rwx. Niedostępne dane są oznaczane jako niedostępne. Rozmiar folderu
+jest wartością zgłaszaną przez system, bez sumowania jego zawartości.
+
+Prawy przycisk nad nazwą pliku/folderu, ścieżką lub lokalnym linkiem
+`file://` udostępnia **Copy Full File Path**. Kopiowana jest pełna ścieżka
+Windows, bez sufiksu numeru wiersza/kolumny. Menu pliku ma też
+**Copy Entire File Contents / Kopiuj całą zawartość**: odczytuje plik w tle
+i kopiuje sam pełny tekst, bez nagłówka metadanych i bez konieczności
+otwierania podglądu. Obsługuje te same kodowania co podgląd. Pliki binarne,
+błędy odczytu i przekroczenie skonfigurowanego limitu rozmiaru wywołują
+komunikat, bez kopiowania fragmentu i bez nadpisywania schowka. Nad adresem HTTP/HTTPS lub
+`www...` dostępne są **Open in Browser** i kopiowanie adresu. Na Windows
+przeglądarka jest uruchamiana przez natywny mechanizm domyślnej aplikacji.
+
+Wbudowany profil Windows ma włączone podkreślanie plików i linki OSC 8.
+We wcześniejszych własnych profilach włącz także **Allow escaped links**
+w ustawieniach myszy, z dozwolonymi schematami `file://`, `http://`, `https://`.
+
 ## Testy backendu
 
 Testy backendu nie wymagają KDE Frameworks. W środowisku z Qt i MSVC:
