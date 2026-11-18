@@ -164,7 +164,11 @@ const std::vector<Profile::PropertyInfo> Profile::DefaultProperties = {
     {WordCharacters, "WordCharacters", INTERACTION_GROUP, QLatin1String(":@-./_~?&=%+#")},
     {TripleClickMode, "TripleClickMode", INTERACTION_GROUP, Enum::SelectWholeLine},
     {UnderlineLinksEnabled, "UnderlineLinksEnabled", INTERACTION_GROUP, true},
+#ifdef Q_OS_WIN
+    {UnderlineFilesEnabled, "UnderlineFilesEnabled", INTERACTION_GROUP, true},
+#else
     {UnderlineFilesEnabled, "UnderlineFilesEnabled", INTERACTION_GROUP, false},
+#endif
     {OpenLinksByDirectClickEnabled, "OpenLinksByDirectClickEnabled", INTERACTION_GROUP, false},
     {TextEditorCmd, "TextEditorCmd", INTERACTION_GROUP, Enum::Default},
     {TextEditorCmdCustom, "TextEditorCmdCustom", INTERACTION_GROUP, QLatin1String("kate PATH:LINE:COLUMN")},
