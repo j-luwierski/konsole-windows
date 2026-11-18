@@ -69,6 +69,7 @@
 #include "session/SessionManager.h"
 #include "widgets/IncrementalSearchBar.h"
 
+#include "SelectionClipboard.h"
 #include "TerminalColor.h"
 #include "TerminalFonts.h"
 #include "TerminalPainter.h"
@@ -2608,6 +2609,10 @@ void TerminalDisplay::copyToX11Selection()
 
     if (QApplication::clipboard()->supportsSelection()) {
         QApplication::clipboard()->setMimeData(createSelectionMimeData(data), QClipboard::Selection);
+#ifdef Q_OS_WIN
+    } else {
+        SelectionClipboard::setText(data.text);
+#endif
     }
 
     if (_autoCopySelectedText) {
@@ -2669,6 +2674,10 @@ void TerminalDisplay::pasteFromX11Selection(bool appendEnter)
     if (QApplication::clipboard()->supportsSelection()) {
         QString text = QApplication::clipboard()->text(QClipboard::Selection);
         doPaste(text, appendEnter);
+#ifdef Q_OS_WIN
+    } else {
+        doPaste(SelectionClipboard::text(), appendEnter);
+#endif
     }
 }
 
