@@ -6,6 +6,7 @@
 */
 
 #include "EscapeSequenceUrlFilterHotSpot.h"
+#include "FileMetadata.h"
 
 #include <KIO/JobUiDelegateFactory>
 #include <KIO/OpenUrlJob>
@@ -15,6 +16,7 @@
 #include <QClipboard>
 #include <QDebug>
 #include <QDrag>
+#include <QDesktopServices>
 #include <QMimeData>
 #include <QMouseEvent>
 
@@ -43,12 +45,22 @@ void EscapeSequenceUrlHotSpot::activate(QObject *object)
     const QString actionName = object != nullptr ? object->objectName() : QString();
 
     if (actionName == QLatin1String("copy-action")) {
-        auto *mimeData = createMimeData();
-        QApplication::clipboard()->setMimeData(mimeData);
+        if (QUrl(_url).isLocalFile()) {
+            const QString local = FileMetadata::localFilePath(QUrl(_url));
+            QApplication::clipboard()->setText(FileMetadata::clipboardPath(local.isEmpty() ? QUrl(_url).toLocalFile() : local));
+        } else {
+            QApplication::clipboard()->setMimeData(createMimeData());
+        }
         return;
     }
 
     if ((object == nullptr) || actionName == QLatin1String("open-action")) {
+#ifdef Q_OS_WIN
+        if (QUrl(_url).scheme() == QLatin1String("https") || QUrl(_url).scheme() == QLatin1String("http")) {
+            QDesktopServices::openUrl(QUrl(_url));
+            return;
+        }
+#endif
         auto *job = new KIO::OpenUrlJob(QUrl(_url));
         job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, QApplication::activeWindow()));
         job->start();
@@ -60,9 +72,9 @@ QList<QAction *> EscapeSequenceUrlHotSpot::actions()
     auto openAction = new QAction(this);
     auto copyAction = new QAction(this);
 
-    openAction->setText(i18n("Open Link"));
+    openAction->setText(QUrl(_url).scheme().startsWith(QLatin1String("http")) ? i18n("Open in Browser") : i18n("Open Link"));
     openAction->setIcon(QIcon::fromTheme(QStringLiteral("internet-services")));
-    copyAction->setText(i18n("Copy Link Address"));
+    copyAction->setText(QUrl(_url).isLocalFile() ? i18n("Copy Full File Path") : i18n("Copy Link Address"));
     copyAction->setIcon(QIcon::fromTheme(QStringLiteral("edit-copy-url")));
 
     // object names are set here so that the hotspot performs the

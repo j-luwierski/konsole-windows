@@ -10,6 +10,11 @@
 using namespace Konsole;
 
 #include "UrlFilterHotspot.h"
+#include "FileFilterHotspot.h"
+#include "FileMetadata.h"
+#include "session/Session.h"
+#include <QSysInfo>
+#include <QUrl>
 
 // Note:  Altering these regular expressions can have a major effect on the performance of the filters
 // used for finding URLs in the text, especially if they are very general and could match very long
@@ -87,7 +92,8 @@ const QRegularExpression UrlFilter::CompleteUrlRegExp(
     QRegularExpression::CaseInsensitiveOption);
 
 /* clang-format on */
-UrlFilter::UrlFilter()
+UrlFilter::UrlFilter(Session *session)
+    : _session(session)
 {
     setRegExp(CompleteUrlRegExp);
 }
@@ -117,5 +123,9 @@ QSharedPointer<HotSpot> UrlFilter::newHotSpot(int startLine, int startColumn, in
     }
     texts << str0;
 
+    const QString localPath = FileMetadata::localFilePath(QUrl(str0));
+    if (_session && !localPath.isEmpty()) {
+        return QSharedPointer<HotSpot>(new FileFilterHotSpot(startLine, startColumn, endLine, endColumn, texts, localPath, _session));
+    }
     return QSharedPointer<HotSpot>(new UrlFilterHotSpot(startLine, startColumn, endLine, endColumn, texts));
 }

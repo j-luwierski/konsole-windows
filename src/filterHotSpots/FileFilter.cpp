@@ -101,7 +101,7 @@ QSharedPointer<HotSpot> FileFilter::newHotSpot(int startLine, int startColumn, i
     if (QDir::isRelativePath(path)) {
         path = QDir(_dirPath).filePath(path);
     }
-    if (!QFileInfo(path).isFile()) {
+    if (!QFileInfo(path).isFile() && !QFileInfo(path).isDir()) {
         return nullptr;
     }
     return QSharedPointer<HotSpot>(new FileFilterHotSpot(startLine, startColumn, endLine, endColumn, capturedTexts, path + location, _session));

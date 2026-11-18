@@ -29,6 +29,7 @@ public:
     EscapeSequenceUrlFilter(Session *session, TerminalDisplay *display);
 
     void process() override;
+    int priority() const override { return 10; }
 
 private:
     QPointer<Session> _session;

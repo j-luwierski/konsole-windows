@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "TextFilePreview.h"
+#include "FileMetadata.h"
 
 #include <QApplication>
 #include <QCoreApplication>
 #include <QDir>
 #include <QMimeDatabase>
+#include <QMessageBox>
+#include <QPointer>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QStandardPaths>
@@ -60,6 +63,7 @@ QString TextPreviewContent::fileCommand()
 TextPreviewContent TextPreviewContent::read(const QString &path, qint64 maximumBytes, bool showFileInfo, const QString &fileExecutable)
 {
     auto content = readText(path, maximumBytes);
+    content.metadata = FileMetadata::describe(path);
     if (!showFileInfo || content.error.isEmpty()) {
         return content;
     }
@@ -91,7 +95,7 @@ TextPreviewContent TextPreviewContent::read(const QString &path, qint64 maximumB
             description += QString::fromUtf8(process.readAllStandardOutput().left(32768)).trimmed();
         }
     }
-    return {description, {}, false};
+    return {description, {}, false, content.metadata};
 }
 
 TextPreviewContent TextPreviewContent::readText(const QString &path, qint64 maximumBytes)
@@ -180,6 +184,24 @@ TextFilePreview *TextFilePreview::forWidget(QWidget *owner)
     return preview ? preview : new TextFilePreview(owner);
 }
 
+void TextFilePreview::copyFileContents(const QString &path, qint64 maximumBytes, QWidget *messageParent)
+{
+    // A hotspot may disappear as soon as its context menu closes. The operation
+    // belongs to the application so that copying still completes afterwards.
+    auto *watcher = new QFutureWatcher<TextPreviewContent>(qApp);
+    const QPointer<QWidget> window(messageParent);
+    connect(watcher, &QFutureWatcher<TextPreviewContent>::finished, qApp, [watcher, window] {
+        const auto result = watcher->result();
+        watcher->deleteLater();
+        if (!result.error.isEmpty()) {
+            QMessageBox::warning(window, tr("Cannot copy file contents"), result.error);
+            return;
+        }
+        QGuiApplication::clipboard()->setText(result.text);
+    });
+    watcher->setFuture(QtConcurrent::run([path, maximumBytes] { return TextPreviewContent::readText(path, maximumBytes); }));
+}
+
 QWidget *TextFilePreview::popup() const { return _popup; }
 QPlainTextEdit *TextFilePreview::editor() const { return _editor; }
 
@@ -247,7 +269,7 @@ void TextFilePreview::load()
     connect(watcher, &QFutureWatcher<TextPreviewContent>::finished, this, [this, watcher, generation] {
         const auto result = watcher->result();
         watcher->deleteLater();
-        if (!result.binary && generation == _generation && _hoveringPath && QCursor::pos() == _anchor && _owner->isVisible()) {
+        if ((!result.binary || !result.metadata.isEmpty()) && generation == _generation && _hoveringPath && QCursor::pos() == _anchor && _owner->isVisible()) {
             showContent(result);
         }
     });
@@ -257,7 +279,8 @@ void TextFilePreview::load()
 void TextFilePreview::showContent(const TextPreviewContent &content)
 {
     QToolTip::hideText();
-    _editor->setPlainText(content.error.isEmpty() ? content.text : content.error);
+    const QString body = content.error.isEmpty() ? content.text : content.error;
+    _editor->setPlainText(content.metadata.isEmpty() ? body : content.metadata + QStringLiteral("\n\n--- File contents / information ---\n\n") + body);
     _editor->setAccessibleName(tr("Text preview: %1").arg(_path));
     _popup->setWindowTitle(_path);
     auto *screen = QGuiApplication::screenAt(_anchor);

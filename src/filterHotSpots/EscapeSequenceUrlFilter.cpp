@@ -9,6 +9,10 @@
 
 #include "EscapeSequenceUrlExtractor.h"
 #include "EscapeSequenceUrlFilterHotSpot.h"
+#include "FileFilterHotspot.h"
+#include "FileMetadata.h"
+#include <QUrl>
+#include <QSysInfo>
 #include "session/Session.h"
 #include "terminalDisplay/TerminalDisplay.h"
 
@@ -36,11 +40,14 @@ void EscapeSequenceUrlFilter::process()
 
         const int beginRow = escapedUrl.begin.row - sWindow->currentLine();
         const int endRow = escapedUrl.end.row - sWindow->currentLine();
-        QSharedPointer<HotSpot> spot(
-            // TODO:
-            // This uses Column / Row while everything else uses Row/Column.
-            // Move everything else to QPoint begin / QPoint End.
-            new EscapeSequenceUrlHotSpot(beginRow, escapedUrl.begin.col, endRow, escapedUrl.end.col, escapedUrl.text, escapedUrl.url));
+        const QString localPath = FileMetadata::localFilePath(QUrl(escapedUrl.url));
+        QSharedPointer<HotSpot> spot;
+        if (!localPath.isEmpty()) {
+            spot.reset(new FileFilterHotSpot(beginRow, escapedUrl.begin.col, endRow, escapedUrl.end.col,
+                                            {escapedUrl.text}, localPath, _session));
+        } else {
+            spot.reset(new EscapeSequenceUrlHotSpot(beginRow, escapedUrl.begin.col, endRow, escapedUrl.end.col, escapedUrl.text, escapedUrl.url));
+        }
 
         addHotSpot(spot);
     }

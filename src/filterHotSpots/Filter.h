@@ -56,6 +56,9 @@ public:
     /** Causes the filter to process the block of text currently in its internal buffer */
     virtual void process() = 0;
 
+    // Explicit hyperlinks take precedence over guessed plain-text paths.
+    virtual int priority() const { return 0; }
+
     /**
      * Empties the filters internal buffer and resets the line count back to 0.
      * All hotspots are deleted.

@@ -24,6 +24,7 @@ struct TextPreviewContent {
     QString text;
     QString error;
     bool binary = false;
+    QString metadata;
     static TextPreviewContent read(const QString &path, qint64 maximumBytes, bool showFileInfo = false, const QString &fileExecutable = {});
     static TextPreviewContent readText(const QString &path, qint64 maximumBytes);
     static QString fileCommand();
@@ -37,6 +38,7 @@ class TextFilePreview : public QObject
 public:
     explicit TextFilePreview(QWidget *owner);
     static TextFilePreview *forWidget(QWidget *owner);
+    static void copyFileContents(const QString &path, qint64 maximumBytes, QWidget *messageParent = nullptr);
     void hoverFile(const QString &path, const QPoint &globalPosition, const TextPreviewOptions &options);
     void leavePath();
     void dismiss();

@@ -9,17 +9,20 @@
 #define URLFILTER_H
 
 #include "RegExpFilter.h"
+#include <QPointer>
 #include "konsoleprivate_export.h"
 
 namespace Konsole
 {
+class Session;
 /** A filter which matches URLs in blocks of text */
 
 // Exported for unittests
 class KONSOLEPRIVATE_EXPORT UrlFilter : public RegExpFilter
 {
 public:
-    UrlFilter();
+    explicit UrlFilter(Session *session = nullptr);
+    int priority() const override { return 5; }
 
     QSharedPointer<HotSpot> newHotSpot(int startLine, int startColumn, int endLine, int endColumn, const QStringList &capturedTexts) override;
 
@@ -29,6 +32,8 @@ public:
 
     // combined OR of FullUrlRegExp and EmailAddressRegExp
     static const QRegularExpression CompleteUrlRegExp;
+private:
+    QPointer<Session> _session;
 };
 
 }

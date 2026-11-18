@@ -71,13 +71,16 @@ void FilterChain::clear()
 
 QSharedPointer<HotSpot> FilterChain::hotSpotAt(int line, int column) const
 {
+    QSharedPointer<HotSpot> result;
+    int priority = 0;
     for (auto *filter : _filters) {
-        QSharedPointer<HotSpot> spot = filter->hotSpotAt(line, column);
-        if (spot != nullptr) {
-            return spot;
+        auto spot = filter->hotSpotAt(line, column);
+        if (spot && (!result || filter->priority() > priority)) {
+            result = spot;
+            priority = filter->priority();
         }
     }
-    return nullptr;
+    return result;
 }
 
 QList<QSharedPointer<HotSpot>> FilterChain::hotSpots() const

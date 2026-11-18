@@ -11,6 +11,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QDrag>
+#include <QDesktopServices>
 #include <QMimeData>
 
 #include <KIO/OpenUrlJob>
@@ -75,6 +76,12 @@ void UrlFilterHotSpot::activate(QObject *object)
             url.prepend(QLatin1String("mailto:"));
         }
 
+#ifdef Q_OS_WIN
+        if (QUrl(url).scheme() == QLatin1String("https") || QUrl(url).scheme() == QLatin1String("http")) {
+            QDesktopServices::openUrl(QUrl(url));
+            return;
+        }
+#endif
         auto *job = new KIO::OpenUrlJob(QUrl(url));
         job->start();
     }
@@ -89,7 +96,10 @@ QList<QAction *> UrlFilterHotSpot::actions()
     Q_ASSERT(kind == StandardUrl || kind == Email);
 
     if (kind == StandardUrl) {
-        openAction->setText(i18n("Open Link"));
+        const QString address = capturedTexts().at(0);
+        const QString scheme = QUrl(address).scheme().toLower();
+        const bool web = !address.contains(QLatin1String("://")) || scheme == QLatin1String("http") || scheme == QLatin1String("https");
+        openAction->setText(web ? i18n("Open in Browser") : i18n("Open Link"));
         openAction->setIcon(QIcon::fromTheme(QStringLiteral("internet-services")));
         copyAction->setText(i18n("Copy Link Address"));
         copyAction->setIcon(QIcon::fromTheme(QStringLiteral("edit-copy-url")));

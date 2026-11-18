@@ -7,12 +7,14 @@
 
 #include "FileFilterHotspot.h"
 #include "TextFilePreview.h"
+#include "FileMetadata.h"
 
 #include <QAction>
 #include <QApplication>
 #include <QBuffer>
 #include <QClipboard>
 #include <QDrag>
+#include <QFileInfo>
 #include <QKeyEvent>
 #include <QMenu>
 #include <QMimeData>
@@ -173,12 +175,23 @@ FileFilterHotSpot::~FileFilterHotSpot() = default;
 
 QList<QAction *> FileFilterHotSpot::actions()
 {
-    QAction *action = new QAction(i18n("Copy Location"), this);
+    QAction *action = new QAction(i18n("Copy Full File Path"), this);
     action->setIcon(QIcon::fromTheme(QStringLiteral("edit-copy-path")));
     connect(action, &QAction::triggered, this, [this] {
-        QGuiApplication::clipboard()->setText(_filePath);
+        QGuiApplication::clipboard()->setText(FileMetadata::clipboardPath(_filePath));
     });
-    return {action};
+    QList<QAction *> result{action};
+    const QString path = TextPreviewContent::pathWithoutLocation(_filePath);
+    if (QFileInfo(path).isFile()) {
+        auto *copyContents = new QAction(i18n("Copy Entire File Contents"), this);
+        copyContents->setIcon(QIcon::fromTheme(QStringLiteral("edit-copy")));
+        connect(copyContents, &QAction::triggered, this, [path] {
+            const qint64 maximum = qBound(1, KonsoleSettings::self()->textFilePreviewMaximumMiB(), 256) * qint64(1024 * 1024);
+            TextFilePreview::copyFileContents(path, maximum, QApplication::activeWindow());
+        });
+        result << copyContents;
+    }
+    return result;
 }
 
 QList<QAction *> FileFilterHotSpot::setupMenu(QMenu *menu)
@@ -187,7 +200,7 @@ QList<QAction *> FileFilterHotSpot::setupMenu(QMenu *menu)
         _menuActions = new KFileItemActions;
     const QList<QAction *> currentActions = menu->actions();
 
-    const KFileItem fileItem(QUrl::fromLocalFile(_filePath));
+    const KFileItem fileItem(QUrl::fromLocalFile(TextPreviewContent::pathWithoutLocation(_filePath)));
     const KFileItemList itemList({fileItem});
     const KFileItemListProperties itemProperties(itemList);
     _menuActions->setParent(this);
@@ -298,7 +311,7 @@ void FileFilterHotSpot::thumbnailRequested()
 
 KFileItem FileFilterHotSpot::fileItem() const
 {
-    return KFileItem(QUrl::fromLocalFile(_filePath));
+    return KFileItem(QUrl::fromLocalFile(TextPreviewContent::pathWithoutLocation(_filePath)));
 }
 
 void FileFilterHotSpot::mouseEnterEvent(TerminalDisplay *td, QMouseEvent *ev)
