@@ -1,0 +1,45 @@
+{
+  "fileVersion": "5.48",
+  "packages": [
+    {
+      "name": "file",
+      "version": "5.48-1",
+      "url": "https://mirror.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-file-5.48-1-any.pkg.tar.zst",
+      "sha256": "d9f23a4f9b9171e6137fc71991fe89964c80766e0881f3eda9cf9bd7cf0ccb67",
+      "sourceUrl": "https://mirror.msys2.org/mingw/sources/mingw-w64-file-5.48-1.src.tar.zst",
+      "sourceSha256": "97f56f246ef830d5b3e1a6bd015b80c4158eca86030a53e0f86654e6827315e4"
+    },
+    {
+      "name": "libsystre",
+      "version": "1.0.2-3",
+      "url": "https://mirror.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-libsystre-1.0.2-3-any.pkg.tar.zst",
+      "sha256": "62f564b1395d4862db1599b77f6588c32de5c80936845751cf369b31eee1560b",
+      "sourceUrl": "https://mirror.msys2.org/mingw/sources/mingw-w64-libsystre-1.0.2-3.src.tar.zst",
+      "sourceSha256": "8c70a595f20ba799c226e298cbcb1ca347b1ab1537ce56dca4509e79caa8d90c"
+    },
+    {
+      "name": "libtre",
+      "version": "0.9.0-2",
+      "url": "https://mirror.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-libtre-0.9.0-2-any.pkg.tar.zst",
+      "sha256": "d50f22545c50d7c0cd584474bba83f0c7a2cd8aab1aed1ad6c1f9c6452f3c4fc",
+      "sourceUrl": "https://mirror.msys2.org/mingw/sources/mingw-w64-libtre-0.9.0-2.src.tar.zst",
+      "sourceSha256": "57ee4f3b992e4ebe9b43fc8b5a0a66000ee40defc1089b727799330778344301"
+    },
+    {
+      "name": "gettext-runtime",
+      "version": "1.0-1",
+      "url": "https://mirror.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-gettext-runtime-1.0-1-any.pkg.tar.zst",
+      "sha256": "ba693dda4ac375af76ce481ff3a6e7481286546cc7dc6d56c7021dae34084157",
+      "sourceUrl": "https://mirror.msys2.org/mingw/sources/mingw-w64-gettext-1.0-1.src.tar.zst",
+      "sourceSha256": "cca0d0c8f60353faccc5ad40405240014e4a7ccc8b1c6ca9f4626aef3097d26e"
+    },
+    {
+      "name": "libiconv",
+      "version": "1.19.1-1",
+      "url": "https://mirror.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-libiconv-1.19.1-1-any.pkg.tar.zst",
+      "sha256": "8a45dc317a285a036bddd79e01505d67b79e44ff49fc3f6e7177a5ea98d098cf",
+      "sourceUrl": "https://mirror.msys2.org/mingw/sources/mingw-w64-libiconv-1.19.1-1.src.tar.zst",
+      "sourceSha256": "ed46bb1b524ad9bd9d843091bf7b18ab23e5cd21fef6de743c8c943bdc11dabe"
+    }
+  ]
+}

@@ -34,21 +34,34 @@ if (-not $SkipPackage) {
     Invoke-CraftChecked (@('--package') + $packageOptions + @('--options', '[Packager]PackageType=PortablePackager', 'konsole'))
     $archives = @(Get-ChildItem $OutputDirectory -Filter '*.zip')
     if ($archives.Count -eq 0) { throw 'Packaging did not produce a portable ZIP.' }
+    & python -m pip install zstandard==0.25.0
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot install archive decompressor for file runtime.' }
     foreach ($archive in $archives) {
         & python (Join-Path $PSScriptRoot 'bundle-powershell.py') $archive.FullName
         if ($LASTEXITCODE -ne 0) { throw 'Bundling PowerShell failed.' }
+        & python (Join-Path $PSScriptRoot 'bundle-file.py') $archive.FullName
+        if ($LASTEXITCODE -ne 0) { throw 'Bundling file identification runtime failed.' }
         # Exercise the runtime extracted from the final ZIP, including a path with spaces.
         $portableTest = Join-Path ([IO.Path]::GetTempPath()) 'Konsole portable runtime test'
         Remove-Item $portableTest -Recurse -Force -ErrorAction SilentlyContinue
         Expand-Archive -LiteralPath $archive.FullName -DestinationPath $portableTest
         $env:KONSOLE_TEST_BUNDLED_PWSH = Join-Path $portableTest 'powershell/pwsh.exe'
+        $env:KONSOLE_TEST_FILE_EXE = Join-Path $portableTest 'file/file.exe'
         try {
+            $originalPath = $env:PATH
+            try {
+                $env:PATH = Join-Path $env:SystemRoot 'System32'
+                $fileDescription = & $env:KONSOLE_TEST_FILE_EXE --magic-file (Join-Path $portableTest 'file/magic.mgc') --brief -- $env:KONSOLE_TEST_FILE_EXE
+                if ($LASTEXITCODE -ne 0 -or $fileDescription -notmatch 'PE32') { throw 'Bundled file runtime is incomplete.' }
+                Write-Host "Bundled file identified itself with an isolated PATH: $fileDescription"
+            } finally { $env:PATH = $originalPath }
             & $env:KONSOLE_TEST_BUNDLED_PWSH -NoLogo -NoProfile -Command '$ErrorActionPreference="Stop"; Import-Module (Join-Path $PSHOME "Modules/PSReadLine/PSReadLine.psd1") -Force; if ($PSVersionTable.PSVersion.ToString() -ne "7.6.10") { throw "Unexpected bundled PowerShell" }; if ((Get-Module PSReadLine).Version.ToString() -ne "2.4.5") { throw "Unexpected PSReadLine" }; $PSVersionTable.PSVersion; Get-Module PSReadLine'
             if ($LASTEXITCODE -ne 0) { throw 'Bundled runtime validation failed.' }
             & ctest --test-dir $testBuild --output-on-failure --output-junit (Join-Path $OutputDirectory 'portable-runtime-tests.xml')
             if ($LASTEXITCODE -ne 0) { throw 'Portable PowerShell integration tests failed.' }
             Copy-Item (Join-Path $testBuild 'conpty-results.xml') (Join-Path $OutputDirectory 'portable-conpty-results.xml')
         } finally {
+            Remove-Item Env:KONSOLE_TEST_FILE_EXE -ErrorAction SilentlyContinue
             Remove-Item Env:KONSOLE_TEST_BUNDLED_PWSH -ErrorAction SilentlyContinue
             Remove-Item $portableTest -Recurse -Force -ErrorAction SilentlyContinue
         }
