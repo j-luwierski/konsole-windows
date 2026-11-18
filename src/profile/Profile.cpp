@@ -186,7 +186,11 @@ const std::vector<Profile::PropertyInfo> Profile::DefaultProperties = {
     {MouseWheelZoomEnabled, "MouseWheelZoomEnabled", INTERACTION_GROUP, true},
     {AllowMouseTracking, "AllowMouseTracking", INTERACTION_GROUP, true},
     {AlternateScrolling, "AlternateScrolling", INTERACTION_GROUP, true},
+#ifdef Q_OS_WIN
+    {AllowEscapedLinks, "AllowEscapedLinks", INTERACTION_GROUP, true},
+#else
     {AllowEscapedLinks, "AllowEscapedLinks", INTERACTION_GROUP, false},
+#endif
     {EscapedLinksSchema, "EscapedLinksSchema", INTERACTION_GROUP, QLatin1String("http://;https://;file://")},
     {ColorFilterEnabled, "ColorFilterEnabled", INTERACTION_GROUP, true},
 
