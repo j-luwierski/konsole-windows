@@ -43,7 +43,9 @@ Zachowano obsługę skrótów i schowka z Konsole:
 | Kopiowanie zaznaczenia | Ctrl+Shift+C lub Ctrl+Insert |
 | Wklejanie ze schowka | Ctrl+Shift+V lub Shift+Insert |
 | Wyszukiwanie w terminalu | Ctrl+Shift+F |
-| Uzupełnianie poleceń i ścieżek w PowerShell | Tab (styl Bash: Complete) |
+| Uzupełnianie poleceń i ścieżek / przyjęcie szarej sugestii | Tab (sugestia, jeśli jest widoczna; inaczej Complete w stylu Bash) |
+| Lista wyboru uzupełnień | Ctrl+Space |
+| Poprzednie dopasowanie | Shift+Tab |
 | Przeszukiwanie historii poleceń wstecz | Ctrl+R |
 
 Portable zawiera PowerShell **7.6.10** z własnym środowiskiem .NET i modułem
@@ -349,3 +351,61 @@ Interactive file previews now take precedence over the older KIO thumbnail popup
 so binary file identification is not obscured by a competing image thumbnail.
 Content-based MIME detection rejects formats such as PDF even when their bytes
 are mostly printable text or the filename ends in `.txt`.
+
+
+## PSReadLine completion and gray predictions
+
+The portable shell uses **PSReadLine**, not a replacement line editor. Tab accepts
+an existing visible inline (gray) prediction at the end of the input. Otherwise it
+uses PSReadLine `Complete`: a unique result is completed, and another Tab lists
+ambiguous matches, in the Bash style. **Ctrl+Space** invokes `MenuComplete` for a
+selection list; arrows navigate the list. **Shift+Tab** selects a previous
+completion. **Enter alone executes the edited line**; accepting a suggestion does
+not execute it. Ctrl+R remains reverse history search.
+
+Gray history/plugin predictions and command argument completion are different
+sources. The Tab binding works with visible gray predictions for any command.
+Native command names newly installed in an existing PATH directory are discovered
+by PowerShell; installing a new PATH directory can require restarting Konsole to
+inherit the updated Windows environment.
+
+The package adds upstream **posh-git 1.1.0** from the pinned commit recorded in
+`git-completion-runtime.json`, including its MIT license and complete source
+archive. When execution policy permits module scripts, it loads automatically
+when Git is available. Under Restricted/AllSigned (or a blocked module import),
+an integrated provider reads bundled option data instead; it also completes
+branches and remotes for common Git commands. No execution policy is changed.
+Git itself is supplied by
+the user's Git for Windows installation on the relevant local/remote host. Tests
+cover `git commit --am` → `--amend`, and actual Tab completion of `git stat` to
+`git status`. User prompt styling is preserved; Konsole's directory reporting and
+file-listing links continue to work.
+
+For native applications without a specific registered completer, PowerShell 7.6's
+`NativeFallback` tries to obtain options from the application's **top-level
+`--help`** on the first relevant Tab. It does not forward the entered arguments or
+execute the partially typed command. On Windows only console EXEs are queried,
+not GUI applications or batch wrappers. The probe runs in the temporary directory,
+closes standard input, captures output, times out after one second and caches the
+result until the executable changes. It needs no online service. Existing
+command-specific completers have priority; PowerShell cmdlet/script parameters
+and ordinary file/path completion still use the normal PowerShell providers.
+
+This cannot invent parameter definitions: applications without useful `--help`,
+complex subcommands, batch wrappers or custom argument-value grammars need their
+own completer, just as with Bash/Zsh. A program can implement `--help` incorrectly.
+To disable automatic help probing in a session, use:
+
+```powershell
+$KonsoleNativeHelpCompletionEnabled = $false
+```
+
+For strict Bash-style Tab without accepting inline predictions, use:
+
+```powershell
+$KonsoleAcceptPredictionWithTab = $false
+```
+
+Both settings may be defined in the user's profile before Konsole initializes;
+Konsole does not edit that profile. The same completion setup is used in remote
+PowerShell sessions and runs against programs installed on the **remote host**.
