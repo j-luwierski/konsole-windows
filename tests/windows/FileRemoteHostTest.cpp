@@ -1,3 +1,5 @@
+#include "TerminalTestOutput.h"
+#include <QScopeGuard>
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "../../src/fileremote/FileRemoteHost.h"
 #include "../../src/fileremote/FileRemoteProcess.h"
@@ -65,28 +67,29 @@ private Q_SLOTS:
             {QStringLiteral("key"), QString::fromLatin1(options.key.toHex())}, {QStringLiteral("poll"), 20}}).toJson();
         const QStringList connectionArgumentsForTest = connectionArguments(config);
         Process client; QByteArray output;
+        const auto captureOutput = qScopeGuard([&] { QFile log(QStringLiteral("remote-stream.log")); if (log.open(QIODevice::WriteOnly | QIODevice::Append)) { log.write(output); } });
         connect(client.notifier(), &QIODevice::readyRead, this, [&] { output += client.readAll(); });
         QVERIFY2(client.startProcess({}, connectionArgumentsForTest, {}, {}, 120, 40), qPrintable(client.lastError()));
-        QTRY_VERIFY2_WITH_TIMEOUT(output.contains("FILE-REMOTE-READY"), output.constData(), 25000);
+        QTRY_VERIFY2_WITH_TIMEOUT(terminalTestText(output).contains("FILE-REMOTE-READY"), output.constData(), 25000);
         const auto send = [&](const QByteArray &input) { return client.write(input.constData(), int(input.size())) == input.size(); };
         QVERIFY(send(QByteArray("Write-Out\t ('FILE-REMOTE-'+'COMPLETED')\r")));
-        QTRY_VERIFY2_WITH_TIMEOUT(output.contains("FILE-REMOTE-COMPLETED"), output.constData(), 15000);
-        const auto count = output.count("FILE-REMOTE-COMPLETED");
+        QTRY_VERIFY2_WITH_TIMEOUT(terminalTestText(output).contains("FILE-REMOTE-COMPLETED"), output.constData(), 15000);
+        const auto count = terminalTestText(output).count("FILE-REMOTE-COMPLETED");
         QVERIFY(send(QByteArray("\x12" "COMPLETED\r")));
-        QTRY_VERIFY_WITH_TIMEOUT(output.count("FILE-REMOTE-COMPLETED") > count, 15000);
+        QTRY_VERIFY_WITH_TIMEOUT(terminalTestText(output).count("FILE-REMOTE-COMPLETED") > count, 15000);
         // Native child process: preserve process output and status through the transport.
         QVERIFY(send(QByteArray("cmd /d /c \"exit 23\"; Write-Output ('FILE-REMOTE-EXIT-' + $LASTEXITCODE)\r")));
-        QTRY_VERIFY2_WITH_TIMEOUT(output.contains("FILE-REMOTE-EXIT-23"), output.constData(), 15000);
+        QTRY_VERIFY2_WITH_TIMEOUT(terminalTestText(output).contains("FILE-REMOTE-EXIT-23"), output.constData(), 15000);
         QVERIFY(client.resize(137, 43));
         QVERIFY(send(QByteArray("Write-Output ('FILE-REMOTE-SIZE-' + [Console]::WindowWidth)\r")));
-        QTRY_VERIFY2_WITH_TIMEOUT(output.contains("FILE-REMOTE-SIZE-137"), output.constData(), 15000);
+        QTRY_VERIFY2_WITH_TIMEOUT(terminalTestText(output).contains("FILE-REMOTE-SIZE-137"), output.constData(), 15000);
         QVERIFY(send(QByteArray("Write-Output ('FILE-REMOTE-'+'SLEEPING'); Start-Sleep -Seconds 60\r")));
-        QTRY_VERIFY_WITH_TIMEOUT(output.contains("FILE-REMOTE-SLEEPING"), 10000);
+        QTRY_VERIFY_WITH_TIMEOUT(terminalTestText(output).contains("FILE-REMOTE-SLEEPING"), 10000);
         QTest::qWait(200);
         QVERIFY(send(QByteArray(1, '\3')));
         QTest::qWait(200);
         QVERIFY(send(QByteArray("Write-Output ('FILE-REMOTE-'+'INTERRUPTED')\r")));
-        QTRY_VERIFY2_WITH_TIMEOUT(output.contains("FILE-REMOTE-INTERRUPTED"), output.constData(), 10000);
+        QTRY_VERIFY2_WITH_TIMEOUT(terminalTestText(output).contains("FILE-REMOTE-INTERRUPTED"), output.constData(), 10000);
         // Large UTF-16 file: response crosses many authenticated packets.
         const QString remotePath = cwd.filePath(QString::fromUtf8("zdalny plik żółć.ini"));
         const QString contents = QString::fromUtf8("[zdalny]\nwartość=żółć 😀\n") + QString(150000, QLatin1Char('x'));
@@ -116,24 +119,24 @@ private Q_SLOTS:
         QVERIFY(result.text.contains(QStringLiteral("unavailable")) || !result.error.isEmpty());
         if (!qEnvironmentVariable("KONSOLE_TEST_BUNDLED_PWSH").isEmpty()) {
             QVERIFY(send(QByteArray("file --version; Write-Output ('REMOTE-FILE-' + $LASTEXITCODE)\r")));
-            QTRY_VERIFY2_WITH_TIMEOUT(output.contains("5.48"), output.constData(), 15000);
-            QTRY_VERIFY_WITH_TIMEOUT(output.contains("REMOTE-FILE-0"), 15000);
+            QTRY_VERIFY2_WITH_TIMEOUT(terminalTestText(output).contains("5.48"), output.constData(), 15000);
+            QTRY_VERIFY_WITH_TIMEOUT(terminalTestText(output).contains("REMOTE-FILE-0"), 15000);
             const QString quotedImage = QString(imagePath).replace(QLatin1Char('\''), QStringLiteral("''"));
             QVERIFY(send(QStringLiteral("file --brief -- '%1'; Write-Output ('REMOTE-MAGIC-' + $LASTEXITCODE)\r").arg(quotedImage).toUtf8()));
-            QTRY_VERIFY2_WITH_TIMEOUT(output.contains("PNG image data"), output.constData(), 15000);
-            QTRY_VERIFY_WITH_TIMEOUT(output.contains("REMOTE-MAGIC-0"), 15000);
+            QTRY_VERIFY2_WITH_TIMEOUT(terminalTestText(output).contains("PNG image data"), output.constData(), 15000);
+            QTRY_VERIFY_WITH_TIMEOUT(terminalTestText(output).contains("REMOTE-MAGIC-0"), 15000);
         }
         if (!qEnvironmentVariable("KONSOLE_TEST_BUNDLED_PWSH").isEmpty()) {
             const QString probe = qEnvironmentVariable("KONSOLE_TEST_COMPLETION_EXE");
             QVERIFY(QFileInfo::exists(probe));
             const QString helpCheck = QStringLiteral("$line=\"& '%1' --be\"; if ([System.Management.Automation.CommandCompletion]::CompleteInput($line,$line.Length,$null).CompletionMatches.CompletionText -contains '--beta') { Write-Output ('NEW-COMMAND-'+'COMPLETED') }\r").arg(QString(probe).replace(QLatin1Char('\''), QStringLiteral("''")));
             QVERIFY(send(helpCheck.toUtf8()));
-            QTRY_VERIFY2_WITH_TIMEOUT(output.contains("NEW-COMMAND-COMPLETED"), output.constData(), 15000);
+            QTRY_VERIFY2_WITH_TIMEOUT(terminalTestText(output).contains("NEW-COMMAND-COMPLETED"), output.constData(), 15000);
             const QByteArray gitCheck("if (!(Get-Module posh-git) -and $global:KonsoleGitCompletionData.poshGit -ne '1.1.0') { throw 'Bundled Git completer not loaded' }; git init --quiet; 'completion' | Set-Content -LiteralPath git-tab-test.txt; $line='git commit --am'; if ([System.Management.Automation.CommandCompletion]::CompleteInput($line,$line.Length,$null).CompletionMatches.CompletionText -contains '--amend') { Write-Output ('GIT-COMPLETION-'+'READY') }\r");
             QVERIFY(send(gitCheck));
-            QTRY_VERIFY2_WITH_TIMEOUT(output.contains("GIT-COMPLETION-READY"), output.constData(), 15000);
+            QTRY_VERIFY2_WITH_TIMEOUT(terminalTestText(output).contains("GIT-COMPLETION-READY"), output.constData(), 15000);
             QVERIFY(send(QByteArray("git stat\t --porcelain; Write-Output ('GIT-TAB-EXIT-' + $LASTEXITCODE)\r")));
-            QTRY_VERIFY2_WITH_TIMEOUT(output.contains("GIT-TAB-EXIT-0"), output.constData(), 15000);
+            QTRY_VERIFY2_WITH_TIMEOUT(terminalTestText(output).contains("GIT-TAB-EXIT-0"), output.constData(), 15000);
         }
         QSignalSpy exited(&client, &IPtyProcess::exited);
         QVERIFY(send(QByteArray("exit 7\r")));

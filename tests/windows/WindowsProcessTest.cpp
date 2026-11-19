@@ -2,11 +2,18 @@
 #include "../../src/ptyqt/windowsprocessutils.h"
 #include "../../src/ptyqt/windowsshellintegration.h"
 #include <QtTest>
+#include "TerminalTestOutput.h"
 
 class WindowsProcessTest : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    void interleavedTerminalReports()
+    {
+        const QByteArray wire("P\x1b]7;file:///C:/work\x07" "E32+ \x1b[93mexecutable\x1b[m");
+        QCOMPARE(terminalTestText(wire), QByteArray("PE32+ executable"));
+        QCOMPARE(terminalTestText(QByteArray("P\x1b]7;file:///C:/work\x1b\\NG image data")), QByteArray("PNG image data"));
+    }
     void quoting()
     {
         using WindowsProcessUtils::quoteArgument;
