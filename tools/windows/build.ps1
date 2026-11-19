@@ -41,6 +41,8 @@ if (-not $SkipPackage) {
         if ($LASTEXITCODE -ne 0) { throw 'Bundling PowerShell failed.' }
         & python (Join-Path $PSScriptRoot 'bundle-file.py') $archive.FullName
         if ($LASTEXITCODE -ne 0) { throw 'Bundling file identification runtime failed.' }
+        & python (Join-Path $PSScriptRoot 'bundle-git-completion.py') $archive.FullName
+        if ($LASTEXITCODE -ne 0) { throw 'Bundling Git completion failed.' }
         # Exercise the runtime extracted from the final ZIP, including a path with spaces.
         $portableTest = Join-Path ([IO.Path]::GetTempPath()) 'Konsole portable runtime test'
         Remove-Item $portableTest -Recurse -Force -ErrorAction SilentlyContinue
@@ -48,6 +50,7 @@ if (-not $SkipPackage) {
         $env:KONSOLE_TEST_BUNDLED_PWSH = Join-Path $portableTest 'powershell/pwsh.exe'
         $env:KONSOLE_TEST_FILE_EXE = Join-Path $portableTest 'file/file.exe'
         $env:KONSOLE_TEST_HOST_EXE = Join-Path $portableTest 'bin/konsole-file-host.exe'
+        if (-not (Test-Path (Join-Path $portableTest 'bin/KonsoleCompletion.ps1'))) { throw 'Completion script missing from portable ZIP.' }
         if (-not (Test-Path (Join-Path $portableTest 'bin/Start-RemoteHost.ps1'))) { throw 'Remote host launcher missing from portable ZIP.' }
         try {
             $originalPath = $env:PATH

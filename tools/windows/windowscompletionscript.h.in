@@ -1,0 +1,9 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+#pragma once
+#include <QString>
+
+#ifndef Q_MOC_RUN
+namespace WindowsShellIntegration {
+inline QString completionScript() { return QStringLiteral(R"KCOMP(@KONSOLE_COMPLETION_SCRIPT@)KCOMP"); }
+}
+#endif
