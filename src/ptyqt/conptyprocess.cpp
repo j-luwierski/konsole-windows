@@ -291,6 +291,13 @@ bool ConPtyProcess::kill()
     disconnect(&m_exitPoll, nullptr, this, nullptr);
     const bool hadConsole = m_ptyHandler != INVALID_HANDLE_VALUE && m_ptyHandler != nullptr;
     if (hadConsole) {
+        // Process creation can fail before the output reader is started.
+        // Older Windows versions wait indefinitely in ClosePseudoConsole if
+        // its output pipe is neither drained nor closed.
+        if (!m_readThread && m_hPipeIn && m_hPipeIn != INVALID_HANDLE_VALUE) {
+            CloseHandle(m_hPipeIn);
+            m_hPipeIn = INVALID_HANDLE_VALUE;
+        }
         // Keep the reader alive while ClosePseudoConsole drains its output.
         m_winContext.closePseudoConsole(m_ptyHandler);
         m_ptyHandler = INVALID_HANDLE_VALUE;
