@@ -9,6 +9,7 @@
 #include <QFileInfo>
 #include <QStringConverter>
 #include <QStringList>
+#include "windowscompletionscript.h"
 
 namespace WindowsShellIntegration
 {
@@ -27,7 +28,7 @@ inline QString bundledPowerShell(const QString &applicationDirectory)
 // PowerShell profile has loaded. No system profile or execution policy changes.
 inline QString initializationScript()
 {
-    return QStringLiteral(R"PS(
+    QString script = QStringLiteral(R"PS(
 # Expose the portable native file command, including its magic database.
 $konsoleFileRoot = $env:KONSOLE_PORTABLE_FILE_DIRECTORY
 if (!$konsoleFileRoot) { $konsoleFileRoot = Join-Path (Split-Path -Parent $PSHOME) 'file' }
@@ -45,6 +46,7 @@ try {
     Set-PSReadLineKeyHandler -Chord Tab -Function Complete -ErrorAction Stop
     Set-PSReadLineKeyHandler -Chord Ctrl+r -Function ReverseSearchHistory -ErrorAction Stop
     Set-PSReadLineOption -HistorySaveStyle SaveIncrementally -ErrorAction Stop
+__KONSOLE_COMPLETION__
 } catch {
     Write-Warning ('Konsole: could not enable Tab completion and Ctrl+R history search: ' + $_.Exception.Message)
 }
@@ -99,6 +101,8 @@ function global:prompt {
     if ($global:KonsoleOriginalPrompt) { & $global:KonsoleOriginalPrompt } else { 'PS> ' }
 }
 )PS");
+    script.replace(QStringLiteral("__KONSOLE_COMPLETION__"), completionScript());
+    return script;
 }
 
 inline QStringList arguments(const QString &script = initializationScript())
