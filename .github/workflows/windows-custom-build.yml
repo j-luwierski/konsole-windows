@@ -61,6 +61,7 @@ jobs:
             Copy-Item $_.FullName (Join-Path $diagnostics ($_.Directory.Name + '-' + $_.Name))
           }
           Copy-Item build-windows-backend/Testing/Temporary/LastTest.log $diagnostics -ErrorAction SilentlyContinue
+          Copy-Item build-windows-backend/*-stream.log $diagnostics -ErrorAction SilentlyContinue
           Copy-Item build-windows-backend/*-results.xml $diagnostics -ErrorAction SilentlyContinue
           Copy-Item dist/custom-windows/*.xml $diagnostics -ErrorAction SilentlyContinue
       - name: Upload diagnostic logs
