@@ -639,7 +639,12 @@ void Session::run()
 #endif
 
     if (result < 0) {
+#ifdef Q_OS_WIN
+        // The embedded initialization used to hide the useful error behind pages of Base64.
+        terminalWarning(i18n("Could not start program '%1'.", exec));
+#else
         terminalWarning(i18n("Could not start program '%1' with arguments '%2'.", exec, arguments.join(QLatin1String(" "))));
+#endif
         terminalWarning(_shellProcess->errorString());
         return;
     }
