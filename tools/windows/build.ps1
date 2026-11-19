@@ -63,7 +63,11 @@ if (-not $SkipPackage) {
             & $env:KONSOLE_TEST_BUNDLED_PWSH -NoLogo -NoProfile -Command '$ErrorActionPreference="Stop"; Import-Module (Join-Path $PSHOME "Modules/PSReadLine/PSReadLine.psd1") -Force; if ($PSVersionTable.PSVersion.ToString() -ne "7.6.10") { throw "Unexpected bundled PowerShell" }; if ((Get-Module PSReadLine).Version.ToString() -ne "2.4.5") { throw "Unexpected PSReadLine" }; $PSVersionTable.PSVersion; Get-Module PSReadLine'
             if ($LASTEXITCODE -ne 0) { throw 'Bundled runtime validation failed.' }
             & ctest --test-dir $testBuild --output-on-failure --output-junit (Join-Path $OutputDirectory 'portable-runtime-tests.xml')
-            if ($LASTEXITCODE -ne 0) { throw 'Portable PowerShell integration tests failed.' }
+            if ($LASTEXITCODE -ne 0) {
+                Get-Content (Join-Path $testBuild 'file-remote-results.xml')
+                Get-Content (Join-Path $testBuild 'conpty-results.xml')
+                throw 'Portable PowerShell integration tests failed.'
+            }
             Copy-Item (Join-Path $testBuild 'conpty-results.xml') (Join-Path $OutputDirectory 'portable-conpty-results.xml')
             Copy-Item (Join-Path $testBuild 'file-remote-results.xml') (Join-Path $OutputDirectory 'portable-file-remote-results.xml')
         } finally {
