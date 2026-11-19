@@ -24,16 +24,20 @@ private Q_SLOTS:
         QTemporaryDir temporary;
         QVERIFY(temporary.isValid());
         ConPtyProcess missingDirectory;
+        qInfo("Checking unavailable working directory");
         QVERIFY(!missingDirectory.startProcess(QStringLiteral("cmd.exe"), {}, temporary.filePath(QStringLiteral("missing")), {}, 80, 24));
         QVERIFY(missingDirectory.lastError().contains(QStringLiteral("working directory")));
         ConPtyProcess oversized;
+        qInfo("Checking oversized command line");
         QVERIFY(!oversized.startProcess(QStringLiteral("cmd.exe"), {QString(33000, QLatin1Char('x'))}, {}, {}, 80, 24));
         QVERIFY(oversized.lastError().contains(QStringLiteral("too long")));
         QFile invalidExecutable(temporary.filePath(QStringLiteral("invalid.exe")));
         QVERIFY(invalidExecutable.open(QIODevice::WriteOnly));
         invalidExecutable.write("not a PE executable"); invalidExecutable.close();
         ConPtyProcess invalid;
+        qInfo("Checking invalid executable");
         QVERIFY(!invalid.startProcess(invalidExecutable.fileName(), {}, {}, {}, 80, 24));
+        qInfo("Invalid executable returned an error");
         // Windows loaders report either ERROR_BAD_EXE_FORMAT or
         // ERROR_EXE_MACHINE_TYPE_MISMATCH for this deliberately invalid file.
         QVERIFY2(invalid.lastError().contains(QStringLiteral("Windows error 193"))
