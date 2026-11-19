@@ -19,8 +19,15 @@ private Q_SLOTS:
         process.kill();
         process.kill();
     }
+    void outputEnvironmentAndExit_data()
+    {
+        QTest::addColumn<int>("status");
+        QTest::newRow("normal") << 7;
+        QTest::newRow("status259") << 259;
+    }
     void outputEnvironmentAndExit()
     {
+        QFETCH(int, status);
         ConPtyProcess process;
         QVERIFY(process.isAvailable());
         QByteArray output;
@@ -28,12 +35,12 @@ private Q_SLOTS:
         QSignalSpy exited(&process, &IPtyProcess::exited);
         QVERIFY2(process.startProcess(QStringLiteral("cmd.exe"),
                                       {QStringLiteral("/d"), QStringLiteral("/c"),
-                                       QStringLiteral("echo %KONSOLE_TEST_VALUE% & exit /b 7")},
+                                       QStringLiteral("echo %KONSOLE_TEST_VALUE% & exit /b %1").arg(status)},
                                       {}, {QStringLiteral("KONSOLE_TEST_VALUE=konsole-conpty-ok")}, 80, 24),
                  qPrintable(process.lastError()));
         QTRY_COMPARE_WITH_TIMEOUT(exited.count(), 1, 15000);
         QVERIFY(terminalTestText(output).contains("konsole-conpty-ok"));
-        QCOMPARE(process.exitCode(), 7);
+        QCOMPARE(process.exitCode(), status);
         QCOMPARE(process.pid(), 0);
         process.kill();
     }
