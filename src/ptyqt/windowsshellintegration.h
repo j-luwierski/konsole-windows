@@ -105,11 +105,40 @@ function global:prompt {
     return script;
 }
 
+// Keep the embedded initialization far below CreateProcessW's command-line limit.
+// qCompress stores a 4-byte length, 2-byte zlib header, raw DEFLATE, and Adler32.
+// Only compiled-in commands are expanded; no external startup script is executed.
+inline QString compactStartupScript(const QString &script)
+{
+    const QString payload = QString::fromLatin1(qCompress(script.toUtf8(), 9).toBase64());
+    return QStringLiteral("$konsoleStartupBytes=[Convert]::FromBase64String('%1');"
+        "$konsoleStartupMemory=[IO.MemoryStream]::new($konsoleStartupBytes,6,$konsoleStartupBytes.Length-10);"
+        "$konsoleStartupDeflate=[IO.Compression.DeflateStream]::new($konsoleStartupMemory,[IO.Compression.CompressionMode]::Decompress);"
+        "$konsoleStartupReader=[IO.StreamReader]::new($konsoleStartupDeflate,[Text.Encoding]::UTF8);"
+        "try{. ([ScriptBlock]::Create($konsoleStartupReader.ReadToEnd()))}finally{$konsoleStartupReader.Dispose()}").arg(payload);
+}
+
 inline QStringList arguments(const QString &script = initializationScript())
 {
     QStringEncoder encoder(QStringEncoder::Utf16LE);
-    const QByteArray encoded = encoder(script);
+    const QByteArray encoded = encoder(compactStartupScript(script));
     return {QStringLiteral("-NoLogo"), QStringLiteral("-NoExit"), QStringLiteral("-EncodedCommand"), QString::fromLatin1(encoded.toBase64())};
+}
+
+// Saved profiles can still contain the long initialization from older packages.
+// Preserve user flags and the exact script, compacting only our recognizable setup.
+inline QStringList compactStoredArguments(QStringList arguments)
+{
+    const int index = arguments.indexOf(QStringLiteral("-EncodedCommand"));
+    if (index < 0 || index + 1 >= arguments.size()) { return arguments; }
+    const QByteArray bytes = QByteArray::fromBase64(arguments[index + 1].toLatin1(), QByteArray::AbortOnBase64DecodingErrors);
+    QStringDecoder decoder(QStringDecoder::Utf16LE);
+    const QString script = decoder(bytes);
+    if (!decoder.hasError() && script.contains(QStringLiteral("KonsoleOriginalPrompt"))
+        && script.contains(QStringLiteral("Set-PSReadLineKeyHandler"))) {
+        arguments[index + 1] = WindowsShellIntegration::arguments(script).constLast();
+    }
+    return arguments;
 }
 }
 #endif

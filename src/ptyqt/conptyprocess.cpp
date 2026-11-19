@@ -13,8 +13,20 @@
 #include <QStandardPaths>
 
 #include "windowsprocessutils.h"
+#include "windowsshellintegration.h"
 
 #define READ_INTERVAL_MSEC 500
+
+static QString windowsFailure(const QString &operation, DWORD error)
+{
+    wchar_t *message = nullptr;
+    FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                   nullptr, error, 0, reinterpret_cast<wchar_t *>(&message), 0, nullptr);
+    const QString detail = message ? QString::fromWCharArray(message).trimmed() : QString();
+    if (message) { LocalFree(message); }
+    return QStringLiteral("%1 (Windows error %2, 0x%3): %4")
+        .arg(operation).arg(error).arg(error, 8, 16, QLatin1Char('0')).arg(detail);
+}
 
 HRESULT ConPtyProcess::createPseudoConsoleAndPipes(HPCON *phPC, HANDLE *phPipeIn, HANDLE *phPipeOut, qint16 cols, qint16 rows)
 {
@@ -100,7 +112,6 @@ bool ConPtyProcess::startProcess(const QString &shellPath,
                                  qint16 rows)
 {
     if (!isAvailable()) {
-        m_lastError = m_winContext.lastError();
         return false;
     }
 
@@ -108,6 +119,7 @@ bool ConPtyProcess::startProcess(const QString &shellPath,
     if (m_ptyHandler != INVALID_HANDLE_VALUE)
         return false;
 
+    m_lastError.clear();
     m_shellPath = QStandardPaths::findExecutable(shellPath);
     if (m_shellPath.isEmpty()) {
         m_lastError = QStringLiteral("ConPTY: executable not found: %1").arg(shellPath);
@@ -117,12 +129,24 @@ bool ConPtyProcess::startProcess(const QString &shellPath,
         m_lastError = QStringLiteral("ConPTY: terminal dimensions must be positive");
         return false;
     }
+    if (!workingDir.isEmpty() && !QDir(workingDir).exists()) {
+        m_lastError = QStringLiteral("ConPTY: working directory does not exist or is unavailable: %1").arg(workingDir);
+        return false;
+    }
     m_size = {cols, rows};
     m_aboutToDestruct = false;
     m_exitCode = -1;
     m_exitNotified = false;
     auto env = WindowsProcessUtils::environmentBlock(environment);
-    auto cmdArg = WindowsProcessUtils::commandLine(m_shellPath, arguments).toStdWString();
+    const QString shellName = QFileInfo(m_shellPath).completeBaseName();
+    const bool powerShell = shellName.compare(QStringLiteral("pwsh"), Qt::CaseInsensitive) == 0
+        || shellName.compare(QStringLiteral("powershell"), Qt::CaseInsensitive) == 0;
+    const QStringList launchArguments = powerShell ? WindowsShellIntegration::compactStoredArguments(arguments) : arguments;
+    auto cmdArg = WindowsProcessUtils::commandLine(m_shellPath, launchArguments).toStdWString();
+    if (cmdArg.size() >= 32767) {
+        m_lastError = QStringLiteral("ConPTY: Windows command line is too long (%1 characters; maximum is 32766)").arg(cmdArg.size());
+        return false;
+    }
     const auto nativeProgram = QDir::toNativeSeparators(m_shellPath).toStdWString();
     const auto nativeDirectory = QDir::toNativeSeparators(workingDir).toStdWString();
 
@@ -132,14 +156,15 @@ bool ConPtyProcess::startProcess(const QString &shellPath,
     hr = createPseudoConsoleAndPipes(&m_ptyHandler, &m_hPipeIn, &m_hPipeOut, cols, rows);
 
     if (S_OK != hr) {
-        m_lastError = QStringLiteral("ConPTY: creating console failed: %1").arg(quint32(hr));
+        m_lastError = windowsFailure(QStringLiteral("ConPTY: creating console failed"), DWORD(hr));
         kill();
         return false;
     }
 
     // Initialize the necessary startup info struct
-    if (S_OK != initializeStartupInfoAttachedToPseudoConsole(&m_shellStartupInfo, m_ptyHandler)) {
-        m_lastError = QStringLiteral("ConPTY: initializing process attributes failed: %1").arg(GetLastError());
+    hr = initializeStartupInfoAttachedToPseudoConsole(&m_shellStartupInfo, m_ptyHandler);
+    if (S_OK != hr) {
+        m_lastError = windowsFailure(QStringLiteral("ConPTY: initializing process attributes failed"), DWORD(hr));
         kill();
         return false;
     }
@@ -159,7 +184,7 @@ bool ConPtyProcess::startProcess(const QString &shellPath,
         : GetLastError();
 
     if (hr != S_OK) {
-        m_lastError = QStringLiteral("ConPTY: cannot create process: %1").arg(hr);
+        m_lastError = windowsFailure(QStringLiteral("ConPTY: cannot create process"), DWORD(hr));
         kill();
         return false;
     }
@@ -354,15 +379,14 @@ qint64 ConPtyProcess::write(const char *data, int size)
 
 bool ConPtyProcess::isAvailable()
 {
-    // #ifdef TOO_OLD_WINSDK
-    // return false; // very importnant! ConPty can be built, but it doesn't work
-    // if built with old sdk and Win10 < 1903
-    // #endif
-
-    qint32 buildNumber = QSysInfo::kernelVersion().split(QLatin1String(".")).last().toInt();
-    if (buildNumber < CONPTY_MINIMAL_WINDOWS_VERSION)
+    // Probe the actual APIs: Server 2019 / Windows 10 1809 already provide ConPTY.
+    // A hard-coded 18309 build check incorrectly rejected those supported systems.
+    if (!m_winContext.init()) {
+        m_lastError = QStringLiteral("ConPTY is unavailable on Windows %1. Requires Windows 10 1809 / Windows Server 2019 or newer. %2")
+            .arg(QSysInfo::kernelVersion(), m_winContext.lastError());
         return false;
-    return m_winContext.init();
+    }
+    return true;
 }
 
 void ConPtyProcess::moveToThread(QThread *targetThread)

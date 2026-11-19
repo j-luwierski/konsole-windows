@@ -14,8 +14,6 @@
 
 #include <utility>
 
-#define CONPTY_MINIMAL_WINDOWS_VERSION 18309
-
 class IPtyProcess : public QObject
 {
     Q_OBJECT

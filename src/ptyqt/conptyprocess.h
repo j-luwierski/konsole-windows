@@ -25,8 +25,7 @@ typedef VOID *HPCON;
 #define TOO_OLD_WINSDK 0
 #endif
 
-// ConPTY available only on Windows 10 releazed after 1903 (19H1) Windows
-// release
+// ConPTY is available from Windows 10 1809 / Windows Server 2019.
 class WindowsContext
 {
 public:
