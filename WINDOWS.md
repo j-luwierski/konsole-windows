@@ -409,3 +409,42 @@ $KonsoleAcceptPredictionWithTab = $false
 Both settings may be defined in the user's profile before Konsole initializes;
 Konsole does not edit that profile. The same completion setup is used in remote
 PowerShell sessions and runs against programs installed on the **remote host**.
+
+
+## Startup fixes after portable 0.6.0
+
+The host launcher must be **invoked**, not entered as a quoted string. From the
+portable `bin` folder, use the whole command, including its initial `&`:
+
+```powershell
+$Exchange = 'D:\KonsoleExchange'
+& '.\Start-RemoteHost.ps1' -ExchangePath $Exchange -HostId 'host1'
+```
+
+A quoted script path followed by `-ExchangePath` without `&` produces a PowerShell
+ParserError before the launcher runs. Use the actual location of your package.
+For an RDP-redirected drive, a client folder such as `C:\KonsoleExchange` can be
+visible to the host as `\\tsclient\C\KonsoleExchange`; check `Test-Path` from the
+same host session. Both paths must refer to the same underlying directory.
+The 0.6.0 release notes include the complete setup and direct-EXE alternative.
+
+PowerShell initialization is now compressed inside its encoded startup command.
+It expands only the embedded commands and does not load an unsigned startup file
+or change execution policy. Saved Konsole initialization arguments are compacted
+as well, preserving the script and other profile flags. This reduces the command
+line substantially below the Win32 limit and keeps Tab/Ctrl+R, predictions, Git,
+file PATH/MAGIC and directory/listing integration enabled.
+
+The ConPTY backend checks for the actual Windows API functions instead of rejecting
+all builds below 18309: Windows 10 1809 / Server 2019 already expose those APIs.
+The full Qt/PowerShell package must also be compatible with the target OS. Windows
+CI validates on Server 2022; an affected user's machine still needs a direct test.
+
+A launch failure now shows the executable and the underlying Windows error/code,
+without pages of Base64 arguments hiding it. Invalid working directories and
+oversized custom command lines have explicit messages. If a failure remains,
+report the short error and the output of:
+
+```powershell
+Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber
+```
