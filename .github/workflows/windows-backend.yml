@@ -3,11 +3,15 @@ on: [push, pull_request, workflow_dispatch]
 jobs:
   backend:
     runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        qt: ['6.8.3', '6.12.0']
     steps:
       - uses: actions/checkout@v4
       - uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.3'
+          version: ${{ matrix.qt }}
           arch: win64_msvc2022_64
           cache: true
       - run: cmake -S tests/windows -B build-windows-tests -A x64
@@ -19,7 +23,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: conpty-test-reports
+          name: conpty-test-reports-qt-${{ matrix.qt }}
           path: |
             build-windows-tests/conpty-results.xml
             build-windows-tests/file-remote-results.xml
