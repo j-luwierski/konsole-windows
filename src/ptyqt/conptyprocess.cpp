@@ -199,8 +199,12 @@ bool ConPtyProcess::startProcess(const QString &shellPath,
         finishIfExited();
     });
     connect(&m_exitPoll, &QTimer::timeout, this, [this]() {
+        // Wait for the process object, not an early exit-status change. Closing
+        // ConPTY during process teardown can replace its requested status with
+        // STATUS_CONTROL_C_EXIT. A signaled process may also legitimately exit 259.
         DWORD code = 0;
-        if (GetExitCodeProcess(m_shellProcessInformation.hProcess, &code) && code != STILL_ACTIVE) {
+        if (WaitForSingleObject(m_shellProcessInformation.hProcess, 0) == WAIT_OBJECT_0
+            && GetExitCodeProcess(m_shellProcessInformation.hProcess, &code)) {
             m_exitPoll.stop();
             m_exitCode = int(code);
             // Closing ConPTY releases the output pipe; the reader delivers the
@@ -226,7 +230,8 @@ void ConPtyProcess::finishIfExited()
         return;
     }
     DWORD code = 0;
-    if (!GetExitCodeProcess(m_shellProcessInformation.hProcess, &code) || code == STILL_ACTIVE) {
+    if (WaitForSingleObject(m_shellProcessInformation.hProcess, 0) != WAIT_OBJECT_0
+        || !GetExitCodeProcess(m_shellProcessInformation.hProcess, &code)) {
         return;
     }
     m_exitNotified = true;
@@ -280,7 +285,8 @@ bool ConPtyProcess::kill()
     }
     if (notifyExit) {
         DWORD code = 0;
-        if (GetExitCodeProcess(m_shellProcessInformation.hProcess, &code) && code != STILL_ACTIVE) {
+        if (WaitForSingleObject(m_shellProcessInformation.hProcess, 0) == WAIT_OBJECT_0
+            && GetExitCodeProcess(m_shellProcessInformation.hProcess, &code)) {
             m_exitCode = int(code);
         }
     }
