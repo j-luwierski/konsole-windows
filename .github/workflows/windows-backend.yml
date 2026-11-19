@@ -6,14 +6,44 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        qt: ['6.8.3', '6.12.0']
+        qt: ['6.8.3', 'craft']
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
       - uses: jurplel/install-qt-action@v4
+        if: matrix.qt != 'craft'
         with:
           version: ${{ matrix.qt }}
           arch: win64_msvc2022_64
           cache: true
+      - name: Install the same Qt build used by portable packaging
+        if: matrix.qt == 'craft'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Invoke-WebRequest https://raw.githubusercontent.com/KDE/craft/master/setup/CraftBootstrap.py -OutFile "$env:RUNNER_TEMP/CraftBootstrap.py"
+          Remove-Item Env:ANDROID_SDK_ROOT -ErrorAction SilentlyContinue
+          Remove-Item Env:ANDROID_NDK -ErrorAction SilentlyContinue
+          python "$env:RUNNER_TEMP/CraftBootstrap.py" --prefix C:/CraftRoot --use-defaults
+          if ($LASTEXITCODE -ne 0) { throw 'Craft bootstrap failed.' }
+          $env:CraftRoot = 'C:/CraftRoot/craft'
+          $environmentJson = & python C:/CraftRoot/craft/bin/CraftSetupHelper.py --setup --format=json
+          if ($LASTEXITCODE -ne 0) { throw 'Craft environment setup failed.' }
+          $craftEnvironment = $environmentJson | ConvertFrom-Json
+          foreach ($property in $craftEnvironment.PSObject.Properties) {
+              Set-Item -Path "Env:$($property.Name)" -Value $property.Value
+          }
+          python C:/CraftRoot/craft/bin/craft.py libs/qt6/qtbase
+          if ($LASTEXITCODE -ne 0) { throw 'Craft Qt installation failed.' }
+          'C:/CraftRoot/bin' | Out-File -FilePath $env:GITHUB_PATH -Append
+          'CMAKE_PREFIX_PATH=C:/CraftRoot' | Out-File -FilePath $env:GITHUB_ENV -Append
+          'Qt6_DIR=C:/CraftRoot/lib/cmake/Qt6' | Out-File -FilePath $env:GITHUB_ENV -Append
+          'QT_PLUGIN_PATH=C:/CraftRoot/plugins' | Out-File -FilePath $env:GITHUB_ENV -Append
       - run: cmake -S tests/windows -B build-windows-tests -A x64
       - run: cmake --build build-windows-tests --config Release
       - run: ctest --test-dir build-windows-tests -C Release --output-on-failure
