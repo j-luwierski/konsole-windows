@@ -58,7 +58,7 @@ private Q_SLOTS:
         options.ledgerDirectory = ledger.path(); options.pollMs = 20;
         options.fileExecutable = qEnvironmentVariable("KONSOLE_TEST_FILE_EXE");
         options.arguments = WindowsShellIntegration::arguments(WindowsShellIntegration::initializationScript()
-            + QStringLiteral("\nWrite-Output ('FILE-REMOTE-'+'READY')\n"));
+            + QStringLiteral("\nif ((Get-Command Set-PSReadLineOption).Parameters.ContainsKey('PredictionSource')) { Set-PSReadLineOption -PredictionSource None }; Write-Output ('FILE-REMOTE-'+'READY')\n"));
         Host host(options); QString error; QVERIFY2(host.start(error), qPrintable(error));
         Host duplicate(options); QVERIFY(!duplicate.start(error));
         const QByteArray config = QJsonDocument(QJsonObject{{QStringLiteral("root"), root.path()}, {QStringLiteral("host"), options.host},
@@ -122,6 +122,18 @@ private Q_SLOTS:
             QVERIFY(send(QStringLiteral("file --brief -- '%1'; Write-Output ('REMOTE-MAGIC-' + $LASTEXITCODE)\r").arg(quotedImage).toUtf8()));
             QTRY_VERIFY2_WITH_TIMEOUT(output.contains("PNG image data"), output.constData(), 15000);
             QTRY_VERIFY_WITH_TIMEOUT(output.contains("REMOTE-MAGIC-0"), 15000);
+        }
+        if (!qEnvironmentVariable("KONSOLE_TEST_BUNDLED_PWSH").isEmpty()) {
+            const QString probe = qEnvironmentVariable("KONSOLE_TEST_COMPLETION_EXE");
+            QVERIFY(QFileInfo::exists(probe));
+            const QString helpCheck = QStringLiteral("$line=\"& '%1' --be\"; if ([System.Management.Automation.CommandCompletion]::CompleteInput($line,$line.Length,$null).CompletionMatches.CompletionText -contains '--beta') { Write-Output ('NEW-COMMAND-'+'COMPLETED') }\r").arg(QString(probe).replace(QLatin1Char('\''), QStringLiteral("''")));
+            QVERIFY(send(helpCheck.toUtf8()));
+            QTRY_VERIFY2_WITH_TIMEOUT(output.contains("NEW-COMMAND-COMPLETED"), output.constData(), 15000);
+            const QByteArray gitCheck("if (!(Get-Module posh-git) -and $global:KonsoleGitCompletionData.poshGit -ne '1.1.0') { throw 'Bundled Git completer not loaded' }; git init --quiet; 'completion' | Set-Content -LiteralPath git-tab-test.txt; $line='git commit --am'; if ([System.Management.Automation.CommandCompletion]::CompleteInput($line,$line.Length,$null).CompletionMatches.CompletionText -contains '--amend') { Write-Output ('GIT-COMPLETION-'+'READY') }\r");
+            QVERIFY(send(gitCheck));
+            QTRY_VERIFY2_WITH_TIMEOUT(output.contains("GIT-COMPLETION-READY"), output.constData(), 15000);
+            QVERIFY(send(QByteArray("git stat\t --porcelain; Write-Output ('GIT-TAB-EXIT-' + $LASTEXITCODE)\r")));
+            QTRY_VERIFY2_WITH_TIMEOUT(output.contains("GIT-TAB-EXIT-0"), output.constData(), 15000);
         }
         QSignalSpy exited(&client, &IPtyProcess::exited);
         QVERIFY(send(QByteArray("exit 7\r")));

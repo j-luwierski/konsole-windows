@@ -60,10 +60,11 @@ private Q_SLOTS:
         QByteArray output;
         connect(process.notifier(), &QIODevice::readyRead, this, [&] { output += process.readAll(); });
         const QString script = WindowsShellIntegration::initializationScript() + QStringLiteral(R"PS(
-if ((Get-PSReadLineKeyHandler | Where-Object Key -eq 'Tab').Function -ne 'Complete') { throw 'Tab binding not initialized' }
+if ((Get-PSReadLineKeyHandler | Where-Object Key -eq 'Tab').Function -notin @('Complete','KonsoleCompleteOrAcceptSuggestion')) { throw 'Tab binding not initialized' }
 if ((Get-PSReadLineKeyHandler | Where-Object Key -eq 'Ctrl+r').Function -ne 'ReverseSearchHistory') { throw 'Ctrl+R binding not initialized' }
 $expectedReadLine = Join-Path $PSHOME 'Modules/PSReadLine'
 if ((Test-Path (Join-Path $expectedReadLine 'PSReadLine.psd1')) -and (Get-Module PSReadLine).ModuleBase -ne $expectedReadLine) { throw 'PSReadLine not loaded from shell distribution' }
+if ((Get-Command Set-PSReadLineOption).Parameters.ContainsKey('PredictionSource')) { Set-PSReadLineOption -PredictionSource None }
 Write-Output 'konsole-readline-ready'
 )PS");
         QVERIFY2(process.startProcess(shell, WindowsShellIntegration::arguments(script), {}, {QStringLiteral("KONSOLE_PREVIEW_TEST_PATH=") + workingDirectory.path()}, 120, 40), qPrintable(process.lastError()));
@@ -101,6 +102,22 @@ Write-Output 'konsole-readline-ready'
             const QByteArray objectCheck("Get-ChildItem -File | ForEach-Object { ('konsole-object-'+'type:') + $_.GetType().Name }\r");
             QCOMPARE(process.write(objectCheck.constData(), objectCheck.size()), qint64(objectCheck.size()));
             QTRY_VERIFY2_WITH_TIMEOUT(output.contains("konsole-object-type:FileInfo"), output.constData(), 15000);
+        }
+        if (shell == qEnvironmentVariable("KONSOLE_TEST_BUNDLED_PWSH")) {
+            const QByteArray seed("Set-PSReadLineOption -PredictionSource History -PredictionViewStyle InlineView; Write-Output ('PREDICTION-'+'ACCEPTED-06')\r");
+            QCOMPARE(process.write(seed.constData(), seed.size()), qint64(seed.size()));
+            QTRY_VERIFY_WITH_TIMEOUT(output.contains("PREDICTION-ACCEPTED-06"), 10000);
+            const auto predictionCount = output.count("PREDICTION-ACCEPTED-06");
+            // Seed a standalone history line, then accept its visible gray tail by Tab.
+            const QByteArray history("Write-Output ('PREDICTION-'+'ACCEPTED-06')\r");
+            process.write(history.constData(), history.size());
+            QTRY_VERIFY_WITH_TIMEOUT(output.count("PREDICTION-ACCEPTED-06") > predictionCount, 10000);
+            const auto beforeTab = output.count("PREDICTION-ACCEPTED-06");
+            const QByteArray prefix("Write-Output ('PREDICTION-"); process.write(prefix.constData(), prefix.size());
+            QTest::qWait(500); process.write("\t", 1); QTest::qWait(100);
+            QCOMPARE(output.count("PREDICTION-ACCEPTED-06"), beforeTab); // Tab never executes.
+            process.write("\r", 1);
+            QTRY_VERIFY2_WITH_TIMEOUT(output.count("PREDICTION-ACCEPTED-06") > beforeTab, output.constData(), 10000);
         }
         process.kill();
     }

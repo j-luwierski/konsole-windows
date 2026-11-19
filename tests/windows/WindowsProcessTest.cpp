@@ -21,6 +21,8 @@ private Q_SLOTS:
     {
         const auto arguments = WindowsShellIntegration::arguments();
         QVERIFY(arguments.contains(QStringLiteral("-NoExit")));
+        // Leave space for executable path and test/setup statements below the Win32 limit.
+        QVERIFY(arguments.constLast().size() < 31000);
         const QByteArray bytes = QByteArray::fromBase64(arguments.constLast().toLatin1());
         QStringDecoder decoder(QStringDecoder::Utf16LE);
         const QString decoded = decoder(bytes);

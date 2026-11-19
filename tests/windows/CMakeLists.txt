@@ -7,6 +7,9 @@ add_compile_definitions(QT_NO_KEYWORDS QT_NO_CAST_FROM_ASCII QT_NO_CAST_FROM_BYT
     QT_NO_CAST_TO_ASCII QT_USE_QSTRINGBUILDER QT_NO_URL_CAST_FROM_STRING
     QT_NO_FOREACH QT_NO_NARROWING_CONVERSIONS_IN_CONNECT)
 find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Widgets Concurrent Test)
+include(../../tools/windows/completion-header.cmake)
+konsole_generate_completion_header("${CMAKE_CURRENT_BINARY_DIR}")
+include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 enable_testing()
 add_executable(WindowsProcessTest WindowsProcessTest.cpp)
 target_link_libraries(WindowsProcessTest PRIVATE Qt6::Core Qt6::Test)
@@ -31,6 +34,8 @@ add_executable(FileChannelTest FileChannelTest.cpp
 target_link_libraries(FileChannelTest PRIVATE Qt6::Core Qt6::Test)
 add_test(NAME FileChannelTest COMMAND FileChannelTest)
 if(WIN32)
+    add_executable(NativeCompletionProbe NativeCompletionProbe.cpp)
+    set_target_properties(NativeCompletionProbe PROPERTIES AUTOMOC OFF)
     add_executable(FileRemoteHostExecutable ../../src/fileremote/hostmain.cpp
         ../../src/fileremote/FileRemoteHost.cpp ../../src/fileremote/FileChannel.cpp
         ../../src/filterHotSpots/TextPreviewContent.cpp ../../src/filterHotSpots/FileMetadata.cpp
@@ -45,7 +50,7 @@ if(WIN32)
     target_link_libraries(FileRemoteHostTest PRIVATE Qt6::Core Qt6::Concurrent Qt6::Test advapi32)
     target_compile_definitions(FileRemoteHostTest PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
     add_test(NAME FileRemoteHostTest COMMAND FileRemoteHostTest -o file-remote-results.xml,xml -o -,txt)
-    set_tests_properties(FileRemoteHostTest PROPERTIES TIMEOUT 150 ENVIRONMENT "KONSOLE_TEST_HOST_BUILD=$<TARGET_FILE:FileRemoteHostExecutable>")
+    set_tests_properties(FileRemoteHostTest PROPERTIES TIMEOUT 150 ENVIRONMENT "KONSOLE_TEST_HOST_BUILD=$<TARGET_FILE:FileRemoteHostExecutable>;KONSOLE_TEST_COMPLETION_EXE=$<TARGET_FILE:NativeCompletionProbe>")
     target_link_libraries(TextFilePreviewTest PRIVATE advapi32)
     add_executable(ConPtyTest ConPtyTest.cpp
         ../../src/ptyqt/conptyprocess.cpp ../../src/ptyqt/conptyprocess.h
