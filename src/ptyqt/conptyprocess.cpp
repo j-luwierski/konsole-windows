@@ -169,7 +169,10 @@ bool ConPtyProcess::startProcess(const QString &shellPath,
         return false;
     }
 
-    // Launch ping to Q_EMIT some text back via the pipe
+    // Return loader/drive errors to the terminal instead of blocking on a
+    // system error dialog, including when running without a visible desktop.
+    const DWORD previousErrorMode = GetThreadErrorMode();
+    SetThreadErrorMode(previousErrorMode | SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX, nullptr);
     hr = CreateProcessW(nativeProgram.c_str(), // Explicit executable avoids ambiguous paths
                        cmdArg.data(), // Command Line
                        NULL, // Process handle not inheritable
@@ -182,6 +185,7 @@ bool ConPtyProcess::startProcess(const QString &shellPath,
                        &m_shellProcessInformation) // Pointer to PROCESS_INFORMATION
         ? S_OK
         : GetLastError();
+    SetThreadErrorMode(previousErrorMode, nullptr);
 
     if (hr != S_OK) {
         m_lastError = windowsFailure(QStringLiteral("ConPTY: cannot create process"), DWORD(hr));
