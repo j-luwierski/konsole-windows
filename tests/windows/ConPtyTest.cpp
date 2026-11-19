@@ -34,7 +34,11 @@ private Q_SLOTS:
         invalidExecutable.write("not a PE executable"); invalidExecutable.close();
         ConPtyProcess invalid;
         QVERIFY(!invalid.startProcess(invalidExecutable.fileName(), {}, {}, {}, 80, 24));
-        QVERIFY2(invalid.lastError().contains(QStringLiteral("Windows error 193")), qPrintable(invalid.lastError()));
+        // Windows loaders report either ERROR_BAD_EXE_FORMAT or
+        // ERROR_EXE_MACHINE_TYPE_MISMATCH for this deliberately invalid file.
+        QVERIFY2(invalid.lastError().contains(QStringLiteral("Windows error 193"))
+                     || invalid.lastError().contains(QStringLiteral("Windows error 216")),
+                 qPrintable(invalid.lastError()));
     }
     void outputEnvironmentAndExit_data()
     {
