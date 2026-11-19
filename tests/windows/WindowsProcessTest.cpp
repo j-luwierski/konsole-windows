@@ -29,13 +29,34 @@ private Q_SLOTS:
         const auto arguments = WindowsShellIntegration::arguments();
         QVERIFY(arguments.contains(QStringLiteral("-NoExit")));
         // Leave space for executable path and test/setup statements below the Win32 limit.
-        QVERIFY(arguments.constLast().size() < 31000);
+        QVERIFY(arguments.constLast().size() < 16000);
         const QByteArray bytes = QByteArray::fromBase64(arguments.constLast().toLatin1());
         QStringDecoder decoder(QStringDecoder::Utf16LE);
         const QString decoded = decoder(bytes);
-        QCOMPARE(decoded, WindowsShellIntegration::initializationScript());
-        QVERIFY(decoded.contains(QStringLiteral("-Chord Tab -Function Complete")));
-        QVERIFY(decoded.contains(QStringLiteral("-Chord Ctrl+r -Function ReverseSearchHistory")));
+        QVERIFY(decoded.contains(QStringLiteral("DeflateStream")));
+        const QRegularExpression payloadExpression(QStringLiteral("FromBase64String\\('([^']+)'\\)"));
+        const auto payloadMatch = payloadExpression.match(decoded);
+        QVERIFY(payloadMatch.hasMatch());
+        const QByteArray compressed = QByteArray::fromBase64(payloadMatch.captured(1).toLatin1());
+        const QString restored = QString::fromUtf8(qUncompress(compressed));
+        QCOMPARE(restored, WindowsShellIntegration::initializationScript());
+        QVERIFY(restored.contains(QStringLiteral("-Chord Tab -Function Complete")));
+        QVERIFY(restored.contains(QStringLiteral("-Chord Ctrl+r -Function ReverseSearchHistory")));
+    }
+    void savedProfileCompaction()
+    {
+        const QString script = WindowsShellIntegration::initializationScript();
+        QStringEncoder encoder(QStringEncoder::Utf16LE);
+        const QByteArray bytes = encoder(script);
+        const QStringList legacy{QStringLiteral("-NoLogo"), QStringLiteral("-NoExit"),
+            QStringLiteral("-EncodedCommand"), QString::fromLatin1(bytes.toBase64()), QStringLiteral("-NoProfile")};
+        const auto compacted = WindowsShellIntegration::compactStoredArguments(legacy);
+        QCOMPARE(compacted.size(), legacy.size());
+        QCOMPARE(compacted.constLast(), QStringLiteral("-NoProfile"));
+        QCOMPARE(compacted[3], WindowsShellIntegration::arguments(script).constLast());
+        QCOMPARE(WindowsShellIntegration::compactStoredArguments(compacted), compacted);
+        const QStringList custom{QStringLiteral("-EncodedCommand"), QStringLiteral("VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAxAA==")};
+        QCOMPARE(WindowsShellIntegration::compactStoredArguments(custom), custom);
     }
     void relocatedPortableShell()
     {

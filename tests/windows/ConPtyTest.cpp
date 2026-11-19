@@ -19,6 +19,23 @@ private Q_SLOTS:
         process.kill();
         process.kill();
     }
+    void startFailureDiagnostics()
+    {
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        ConPtyProcess missingDirectory;
+        QVERIFY(!missingDirectory.startProcess(QStringLiteral("cmd.exe"), {}, temporary.filePath(QStringLiteral("missing")), {}, 80, 24));
+        QVERIFY(missingDirectory.lastError().contains(QStringLiteral("working directory")));
+        ConPtyProcess oversized;
+        QVERIFY(!oversized.startProcess(QStringLiteral("cmd.exe"), {QString(33000, QLatin1Char('x'))}, {}, {}, 80, 24));
+        QVERIFY(oversized.lastError().contains(QStringLiteral("too long")));
+        QFile invalidExecutable(temporary.filePath(QStringLiteral("invalid.exe")));
+        QVERIFY(invalidExecutable.open(QIODevice::WriteOnly));
+        invalidExecutable.write("not a PE executable"); invalidExecutable.close();
+        ConPtyProcess invalid;
+        QVERIFY(!invalid.startProcess(invalidExecutable.fileName(), {}, {}, {}, 80, 24));
+        QVERIFY2(invalid.lastError().contains(QStringLiteral("Windows error 193")), qPrintable(invalid.lastError()));
+    }
     void outputEnvironmentAndExit_data()
     {
         QTest::addColumn<int>("status");
