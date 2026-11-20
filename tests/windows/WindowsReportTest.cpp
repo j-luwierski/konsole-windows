@@ -28,10 +28,12 @@ private Q_SLOTS:
         environment.insert(QStringLiteral("QT_PLUGIN_PATH"), QStringLiteral("Z:/foreign-qt"));
         environment.remove(QStringLiteral("KONSOLE_REPORT_PID"));
         environment.remove(QStringLiteral("KONSOLE_REPORT_FILE"));
+        QString target = launcher;
+        QString callerDirectory = QDir::tempPath();
         const auto run = [&](const QStringList &arguments) {
             QProcess process; process.setProcessEnvironment(environment);
-            process.setWorkingDirectory(QDir::tempPath());
-            process.start(launcher, arguments);
+            process.setWorkingDirectory(callerDirectory);
+            process.start(target, arguments);
             if (!process.waitForStarted(10000) || !process.waitForFinished(15000)) { return -1; }
             return process.exitStatus() == QProcess::NormalExit ? process.exitCode() : -2;
         };
@@ -49,7 +51,7 @@ private Q_SLOTS:
             QStringLiteral("bin/konsole.exe"), QStringLiteral("bin/konsoleapp.dll"), QStringLiteral("bin/konsoleprivate.dll"),
             QStringLiteral("bin/Qt6Core.dll"), QStringLiteral("bin/Qt6Gui.dll"), QStringLiteral("bin/Qt6Widgets.dll"),
             QStringLiteral("bin/Qt6Concurrent.dll"), QStringLiteral("bin/platforms/qwindows.dll"),
-            QStringLiteral("bin/konsole-file-host.exe"), QStringLiteral("bin/Start-RemoteHost.ps1"),
+            QStringLiteral("bin/konsole-file-host.exe"), QStringLiteral("bin/Start-RemoteHost.exe"), QStringLiteral("bin/Start-RemoteHost.ps1"),
             QStringLiteral("bin/KonsoleCompletion.ps1"), QStringLiteral("powershell/pwsh.exe"), QStringLiteral("powershell/coreclr.dll"),
             QStringLiteral("powershell/Modules/PSReadLine/PSReadLine.psd1"),
             QStringLiteral("powershell/Modules/PSReadLine/Microsoft.PowerShell.PSReadLine.dll"),
@@ -70,8 +72,24 @@ private Q_SLOTS:
         // Its ordinary exit status 3 must produce a launcher error/report.
         QCOMPARE(run({QStringLiteral("--no-error-dialog")}), 7);
         QVERIFY(reportText().contains("child exit status] 3 (0x00000003)"));
+        QCOMPARE(run({QStringLiteral("--no-error-dialog"), QStringLiteral("--launcher-crash")}), 7);
+        QVERIFY(reportText().contains("unhandled exception"));
+        QVERIFY(reportText().contains("exception=0xc0000005"));
         QVERIFY(reportText().contains(QDir::toNativeSeparators(root).toUtf8()));
         QVERIFY(!reportText().contains("Z:/foreign-qt"));
+        const QString remoteLauncher = QDir(root).filePath(QStringLiteral("Start-RemoteHost.exe"));
+        QVERIFY(QFile::copy(qEnvironmentVariable("KONSOLE_TEST_REMOTE_LAUNCHER"), remoteLauncher));
+        const QString host = QDir(root).filePath(QStringLiteral("bin/konsole-file-host.exe"));
+        QVERIFY(QFile::remove(host));
+        QVERIFY(QFile::copy(qEnvironmentVariable("KONSOLE_TEST_LAUNCH_PROBE"), host));
+        target = remoteLauncher; callerDirectory = root;
+        QCOMPARE(run({QStringLiteral("--no-error-dialog"), QStringLiteral("--launcher-check")}), 0);
+        QCOMPARE(run({QStringLiteral("--no-error-dialog"), QStringLiteral("--help")}), 0);
+        QCOMPARE(run({QStringLiteral("--no-error-dialog"), QStringLiteral("--launcher-paths"),
+                      QStringLiteral("--root"), QStringLiteral("."), QStringLiteral("--cwd"), QStringLiteral("."),
+                      QStringLiteral("--key-file"), QStringLiteral("pairing key.txt")}), 0);
+        QCOMPARE(run({QStringLiteral("--no-error-dialog"), QStringLiteral("--root"), QStringLiteral("missing-exchange")}), 8);
+        QVERIFY(reportText().contains("unavailable remote directory"));
         QVERIFY(QFile::remove(QDir(root).filePath(QStringLiteral("powershell/pwsh.exe"))));
         QCOMPARE(run({QStringLiteral("--no-error-dialog"), QStringLiteral("--check-portable")}), 2);
     }

@@ -39,12 +39,17 @@ if(WIN32)
         AUTOMOC OFF MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     target_compile_definitions(WindowsLauncher PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
     target_link_libraries(WindowsLauncher PRIVATE shell32 user32)
+    add_executable(WindowsRemoteLauncher ../../src/windows/launcher.cpp)
+    set_target_properties(WindowsRemoteLauncher PROPERTIES OUTPUT_NAME Start-RemoteHost WIN32_EXECUTABLE FALSE AUTOMOC OFF
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    target_compile_definitions(WindowsRemoteLauncher PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN KONSOLE_REMOTE_LAUNCHER)
+    target_link_libraries(WindowsRemoteLauncher PRIVATE shell32 user32)
     add_executable(WindowsReportTest WindowsReportTest.cpp)
     target_link_libraries(WindowsReportTest PRIVATE Qt6::Core Qt6::Test)
     target_compile_definitions(WindowsReportTest PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
     add_test(NAME WindowsReportTest COMMAND WindowsReportTest)
     set_tests_properties(WindowsReportTest PROPERTIES TIMEOUT 90
-        ENVIRONMENT "KONSOLE_TEST_LAUNCHER=$<TARGET_FILE:WindowsLauncher>;KONSOLE_TEST_LAUNCH_PROBE=$<TARGET_FILE:NativeCompletionProbe>")
+        ENVIRONMENT "KONSOLE_TEST_LAUNCHER=$<TARGET_FILE:WindowsLauncher>;KONSOLE_TEST_REMOTE_LAUNCHER=$<TARGET_FILE:WindowsRemoteLauncher>;KONSOLE_TEST_LAUNCH_PROBE=$<TARGET_FILE:NativeCompletionProbe>")
     add_executable(NativeCompletionProbe NativeCompletionProbe.cpp)
     set_target_properties(NativeCompletionProbe PROPERTIES AUTOMOC OFF
         MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
