@@ -15,6 +15,7 @@
 #include <QProcessEnvironment>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QUrl>
 #include <QtTest>
 using namespace Konsole::FileRemote;
 using Konsole::TextPreviewContent;
@@ -86,8 +87,12 @@ private Q_SLOTS:
         QVERIFY(send(QByteArray("Write-Output ('FILE-REMOTE-'+'SLEEPING'); Start-Sleep -Seconds 60\r")));
         QTRY_VERIFY_WITH_TIMEOUT(terminalTestText(output).contains("FILE-REMOTE-SLEEPING"), 10000);
         QTest::qWait(200);
+        const QByteArray promptReport = QByteArray("\x1b]7;") + QUrl::fromLocalFile(cwd.path()).toEncoded();
+        const auto promptsBeforeInterrupt = output.count(promptReport);
         QVERIFY(send(QByteArray(1, '\3')));
-        QTest::qWait(200);
+        // Ctrl+C completes asynchronously. Wait for the integration's next
+        // prompt report instead of typing while PowerShell is still unwinding.
+        QTRY_VERIFY2_WITH_TIMEOUT(output.count(promptReport) > promptsBeforeInterrupt, output.constData(), 10000);
         QVERIFY(send(QByteArray("Write-Output ('FILE-REMOTE-'+'INTERRUPTED')\r")));
         QTRY_VERIFY2_WITH_TIMEOUT(terminalTestText(output).contains("FILE-REMOTE-INTERRUPTED"), output.constData(), 10000);
         // Large UTF-16 file: response crosses many authenticated packets.
