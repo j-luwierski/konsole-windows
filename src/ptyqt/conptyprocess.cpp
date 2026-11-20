@@ -14,6 +14,7 @@
 
 #include "windowsprocessutils.h"
 #include "windowsshellintegration.h"
+#include "../windows/NativeReport.h"
 
 #define READ_INTERVAL_MSEC 500
 
@@ -111,27 +112,33 @@ bool ConPtyProcess::startProcess(const QString &shellPath,
                                  qint16 cols,
                                  qint16 rows)
 {
-    if (!isAvailable()) {
+    const auto failed = [&] {
+        Konsole::WindowsReport::event(L"shell executable", shellPath.toStdWString().c_str());
+        Konsole::WindowsReport::event(L"shell working directory", workingDir.toStdWString().c_str());
+        Konsole::WindowsReport::event(L"shell start error", m_lastError.toStdWString().c_str());
         return false;
+    };
+    if (!isAvailable()) {
+        return failed();
     }
 
     // already running
     if (m_ptyHandler != INVALID_HANDLE_VALUE)
-        return false;
+        return failed();
 
     m_lastError.clear();
     m_shellPath = QStandardPaths::findExecutable(shellPath);
     if (m_shellPath.isEmpty()) {
         m_lastError = QStringLiteral("ConPTY: executable not found: %1").arg(shellPath);
-        return false;
+        return failed();
     }
     if (cols <= 0 || rows <= 0) {
         m_lastError = QStringLiteral("ConPTY: terminal dimensions must be positive");
-        return false;
+        return failed();
     }
     if (!workingDir.isEmpty() && !QDir(workingDir).exists()) {
         m_lastError = QStringLiteral("ConPTY: working directory does not exist or is unavailable: %1").arg(workingDir);
-        return false;
+        return failed();
     }
     m_size = {cols, rows};
     m_aboutToDestruct = false;
@@ -145,7 +152,7 @@ bool ConPtyProcess::startProcess(const QString &shellPath,
     auto cmdArg = WindowsProcessUtils::commandLine(m_shellPath, launchArguments).toStdWString();
     if (cmdArg.size() >= 32767) {
         m_lastError = QStringLiteral("ConPTY: Windows command line is too long (%1 characters; maximum is 32766)").arg(cmdArg.size());
-        return false;
+        return failed();
     }
     const auto nativeProgram = QDir::toNativeSeparators(m_shellPath).toStdWString();
     const auto nativeDirectory = QDir::toNativeSeparators(workingDir).toStdWString();
@@ -158,7 +165,7 @@ bool ConPtyProcess::startProcess(const QString &shellPath,
     if (S_OK != hr) {
         m_lastError = windowsFailure(QStringLiteral("ConPTY: creating console failed"), DWORD(hr));
         kill();
-        return false;
+        return failed();
     }
 
     // Initialize the necessary startup info struct
@@ -166,7 +173,7 @@ bool ConPtyProcess::startProcess(const QString &shellPath,
     if (S_OK != hr) {
         m_lastError = windowsFailure(QStringLiteral("ConPTY: initializing process attributes failed"), DWORD(hr));
         kill();
-        return false;
+        return failed();
     }
 
     // Return loader/drive errors to the terminal instead of blocking on a
@@ -190,7 +197,7 @@ bool ConPtyProcess::startProcess(const QString &shellPath,
     if (hr != S_OK) {
         m_lastError = windowsFailure(QStringLiteral("ConPTY: cannot create process"), DWORD(hr));
         kill();
-        return false;
+        return failed();
     }
     m_pid = m_shellProcessInformation.dwProcessId;
 
