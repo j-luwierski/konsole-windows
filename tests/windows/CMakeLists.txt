@@ -34,6 +34,17 @@ add_executable(FileChannelTest FileChannelTest.cpp
 target_link_libraries(FileChannelTest PRIVATE Qt6::Core Qt6::Test)
 add_test(NAME FileChannelTest COMMAND FileChannelTest)
 if(WIN32)
+    add_executable(WindowsLauncher WIN32 ../../src/windows/launcher.cpp)
+    set_target_properties(WindowsLauncher PROPERTIES OUTPUT_NAME Start-Konsole
+        AUTOMOC OFF MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    target_compile_definitions(WindowsLauncher PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+    target_link_libraries(WindowsLauncher PRIVATE shell32 user32)
+    add_executable(WindowsReportTest WindowsReportTest.cpp)
+    target_link_libraries(WindowsReportTest PRIVATE Qt6::Core Qt6::Test)
+    target_compile_definitions(WindowsReportTest PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+    add_test(NAME WindowsReportTest COMMAND WindowsReportTest)
+    set_tests_properties(WindowsReportTest PROPERTIES TIMEOUT 90
+        ENVIRONMENT "KONSOLE_TEST_LAUNCHER=$<TARGET_FILE:WindowsLauncher>;KONSOLE_TEST_LAUNCH_PROBE=$<TARGET_FILE:NativeCompletionProbe>")
     add_executable(NativeCompletionProbe NativeCompletionProbe.cpp)
     set_target_properties(NativeCompletionProbe PROPERTIES AUTOMOC OFF)
     add_executable(FileRemoteHostExecutable ../../src/fileremote/hostmain.cpp
