@@ -75,6 +75,10 @@ private Q_SLOTS:
         QVERIFY(module.open(QIODevice::WriteOnly));
         module.close();
         QCOMPARE(QDir::fromNativeSeparators(WindowsShellIntegration::bundledPowerShell(bin)), executable.fileName());
+        const QString oldPowerShell = root.filePath(QStringLiteral("old-location/pwsh.exe"));
+        QCOMPARE(QDir::fromNativeSeparators(WindowsShellIntegration::relocatedPowerShell(oldPowerShell, bin)), executable.fileName());
+        QVERIFY(WindowsShellIntegration::relocatedPowerShell(executable.fileName(), bin).isEmpty());
+        QVERIFY(WindowsShellIntegration::relocatedPowerShell(root.filePath(QStringLiteral("missing/custom.exe")), bin).isEmpty());
     }
     void environment()
     {
