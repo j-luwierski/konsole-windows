@@ -9,6 +9,7 @@
 #include <QFileInfo>
 #include <QStringConverter>
 #include <QStringList>
+#include <QStandardPaths>
 #include "windowscompletionscript.h"
 
 namespace WindowsShellIntegration
@@ -22,6 +23,17 @@ inline QString bundledPowerShell(const QString &applicationDirectory)
         return QDir::toNativeSeparators(executable);
     }
     return {};
+}
+
+// Recover a moved portable profile only when its PowerShell executable is gone.
+// Existing external shells and non-PowerShell programs remain the user's choice.
+inline QString relocatedPowerShell(const QString &program, const QString &applicationDirectory)
+{
+    const QString name = QFileInfo(program).completeBaseName();
+    if (name.compare(QStringLiteral("pwsh"), Qt::CaseInsensitive) != 0
+        && name.compare(QStringLiteral("powershell"), Qt::CaseInsensitive) != 0) { return {}; }
+    if (QFileInfo::exists(program) || !QStandardPaths::findExecutable(program).isEmpty()) { return {}; }
+    return bundledPowerShell(applicationDirectory);
 }
 
 // Applied only to Konsole's built-in PowerShell profile, after the user's
