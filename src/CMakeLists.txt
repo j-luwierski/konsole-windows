@@ -442,14 +442,14 @@ if(WIN32)
     target_compile_definitions(konsole PRIVATE KONSOLE_PORTABLE_REVISION="${portable_revision}")
     target_compile_definitions(konsole-file-host PRIVATE KONSOLE_PORTABLE_REVISION="${portable_revision}")
     add_executable(konsole-launcher WIN32 windows/launcher.cpp)
-    set_target_properties(konsole-launcher PROPERTIES OUTPUT_NAME Start-Konsole AUTOMOC OFF AUTOUIC OFF
+    set_target_properties(konsole-launcher PROPERTIES OUTPUT_NAME konsole-launcher AUTOMOC OFF AUTOUIC OFF
         MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     target_compile_definitions(konsole-launcher PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN
         KONSOLE_PORTABLE_REVISION="${portable_revision}")
     target_link_libraries(konsole-launcher PRIVATE shell32 user32)
     install(TARGETS konsole-launcher ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
     add_executable(konsole-remote-launcher windows/launcher.cpp)
-    set_target_properties(konsole-remote-launcher PROPERTIES OUTPUT_NAME Start-RemoteHost WIN32_EXECUTABLE FALSE AUTOMOC OFF AUTOUIC OFF
+    set_target_properties(konsole-remote-launcher PROPERTIES OUTPUT_NAME konsole-remote-launcher WIN32_EXECUTABLE FALSE AUTOMOC OFF AUTOUIC OFF
         MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     target_compile_definitions(konsole-remote-launcher PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN
         KONSOLE_REMOTE_LAUNCHER KONSOLE_PORTABLE_REVISION="${portable_revision}")
