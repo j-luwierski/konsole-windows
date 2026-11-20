@@ -462,7 +462,10 @@ bundled PowerShell/PSReadLine and file database. It supplies package-local Qt
 plugin paths, PATH and MAGIC only to the launched process. A valid user home is
 used as the initial directory, falling back to the package root. Stale local
 profile working directories fall back to an available home/application folder
-with a terminal warning and a report; profile arguments are not rewritten.
+with a terminal warning and a report. A missing saved pwsh.exe/powershell.exe
+path can recover the bundled PowerShell after a package move, preserving the
+profile arguments. Existing custom shells are kept; saved profile files are
+not rewritten.
 
 Reports are UTF-8 `.log` files in **%LOCALAPPDATA%\Konsole\reports**. If that
 location cannot be created, the fallback is **%TEMP%\Konsole\reports**. The
