@@ -46,7 +46,8 @@ if(WIN32)
     set_tests_properties(WindowsReportTest PROPERTIES TIMEOUT 90
         ENVIRONMENT "KONSOLE_TEST_LAUNCHER=$<TARGET_FILE:WindowsLauncher>;KONSOLE_TEST_LAUNCH_PROBE=$<TARGET_FILE:NativeCompletionProbe>")
     add_executable(NativeCompletionProbe NativeCompletionProbe.cpp)
-    set_target_properties(NativeCompletionProbe PROPERTIES AUTOMOC OFF)
+    set_target_properties(NativeCompletionProbe PROPERTIES AUTOMOC OFF
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     add_executable(FileRemoteHostExecutable ../../src/fileremote/hostmain.cpp
         ../../src/fileremote/FileRemoteHost.cpp ../../src/fileremote/FileChannel.cpp
         ../../src/filterHotSpots/TextPreviewContent.cpp ../../src/filterHotSpots/FileMetadata.cpp

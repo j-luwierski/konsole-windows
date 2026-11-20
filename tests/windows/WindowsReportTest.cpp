@@ -24,6 +24,7 @@ private Q_SLOTS:
         auto environment = QProcessEnvironment::systemEnvironment();
         environment.insert(QStringLiteral("LOCALAPPDATA"), logs);
         environment.insert(QStringLiteral("USERPROFILE"), temporary.filePath(QStringLiteral("unavailable-home")));
+        environment.insert(QStringLiteral("KONSOLE_LAUNCH_TEST_ROOT"), QDir::toNativeSeparators(root));
         environment.insert(QStringLiteral("QT_PLUGIN_PATH"), QStringLiteral("Z:/foreign-qt"));
         environment.remove(QStringLiteral("KONSOLE_REPORT_PID"));
         environment.remove(QStringLiteral("KONSOLE_REPORT_FILE"));
@@ -63,6 +64,7 @@ private Q_SLOTS:
         QVERIFY(QFile::copy(qEnvironmentVariable("KONSOLE_TEST_LAUNCH_PROBE"), terminal));
         QCOMPARE(run({QStringLiteral("--no-error-dialog"), QStringLiteral("--check-portable")}), 0);
         QVERIFY(reportText().contains("portable validation] passed"));
+        QCOMPARE(run({QStringLiteral("--no-error-dialog"), QStringLiteral("--launcher-check")}), 0);
         // The CLI probe exits zero only when --help is forwarded intact.
         QCOMPARE(run({QStringLiteral("--no-error-dialog"), QStringLiteral("--help")}), 0);
         // Its ordinary exit status 3 must produce a launcher error/report.
