@@ -6,6 +6,8 @@ if (-not (Get-Command craft -ErrorAction SilentlyContinue)) {
     throw 'Initialize KDE Craft first: https://develop.kde.org/docs/getting-started/building/craft/craft-windows/'
 }
 $sourceDirectory = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+& python (Join-Path $PSScriptRoot 'test-bundle-launchers.py')
+if ($LASTEXITCODE -ne 0) { throw 'Native launcher packaging regression test failed.' }
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $sourceDirectory 'dist/custom-windows' }
 $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Force $OutputDirectory | Out-Null
@@ -37,7 +39,7 @@ if (-not $SkipPackage) {
     & python -m pip install zstandard==0.25.0 pefile==2024.8.26
     if ($LASTEXITCODE -ne 0) { throw 'Cannot install archive decompressor for file runtime.' }
     foreach ($archive in $archives) {
-        & python (Join-Path $PSScriptRoot 'bundle-powershell.py') $archive.FullName
+        & python (Join-Path $PSScriptRoot 'bundle-powershell.py') $archive.FullName --require-launchers
         if ($LASTEXITCODE -ne 0) { throw 'Bundling PowerShell failed.' }
         & python (Join-Path $PSScriptRoot 'bundle-file.py') $archive.FullName
         if ($LASTEXITCODE -ne 0) { throw 'Bundling file identification runtime failed.' }
