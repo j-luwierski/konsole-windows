@@ -97,6 +97,7 @@ private Q_SLOTS:
     {
         Konsole::WindowsReport::initializeQt(L"report-test");
         qWarning("private-terminal-sample-and-pairing-key-must-not-be-in-report");
+        QMessageLogger(nullptr, 0, nullptr, "qt.qpa.input").warning("private-input-sample-must-not-be-in-report");
         Konsole::WindowsReport::event(L"test error", L"Known safe diagnostic reason");
         QFile file(QString::fromStdWString(Konsole::WindowsReport::state().path));
         QVERIFY(file.open(QIODevice::ReadOnly));
@@ -104,6 +105,7 @@ private Q_SLOTS:
         QVERIFY(contents.contains("Qt message"));
         QVERIFY(contents.contains("Known safe diagnostic reason"));
         QVERIFY(!contents.contains("private-terminal-sample-and-pairing-key"));
+        QVERIFY(!contents.contains("private-input-sample"));
     }
 };
 QTEST_GUILESS_MAIN(WindowsReportTest)
