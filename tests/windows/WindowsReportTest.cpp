@@ -30,11 +30,13 @@ private Q_SLOTS:
         environment.remove(QStringLiteral("KONSOLE_REPORT_FILE"));
         QString target = launcher;
         QString callerDirectory = QDir::tempPath();
+        QByteArray lastOutput;
         const auto run = [&](const QStringList &arguments) {
             QProcess process; process.setProcessEnvironment(environment);
             process.setWorkingDirectory(callerDirectory);
             process.start(target, arguments);
             if (!process.waitForStarted(10000) || !process.waitForFinished(15000)) { return -1; }
+            lastOutput = process.readAllStandardOutput();
             return process.exitStatus() == QProcess::NormalExit ? process.exitCode() : -2;
         };
         const auto reportText = [&] {
@@ -85,6 +87,7 @@ private Q_SLOTS:
         target = remoteLauncher; callerDirectory = root;
         QCOMPARE(run({QStringLiteral("--no-error-dialog"), QStringLiteral("--launcher-check")}), 0);
         QCOMPARE(run({QStringLiteral("--no-error-dialog"), QStringLiteral("--help")}), 0);
+        QVERIFY(lastOutput.contains("Usage: new-command"));
         QCOMPARE(run({QStringLiteral("--no-error-dialog"), QStringLiteral("--launcher-paths"),
                       QStringLiteral("--root"), QStringLiteral("."), QStringLiteral("--cwd"), QStringLiteral("."),
                       QStringLiteral("--key-file"), QStringLiteral("pairing key.txt")}), 0);
