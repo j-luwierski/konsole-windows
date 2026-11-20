@@ -448,3 +448,65 @@ report the short error and the output of:
 ```powershell
 Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber
 ```
+
+### Portable launcher and automatic diagnostic reports (0.6.1)
+
+Start the portable package with **Start-Konsole.exe at the ZIP root**. Keep the
+whole package together. The same launcher also works from `bin`. It is a native
+Windows executable with a statically linked C++ runtime and does not depend on
+Qt, PowerShell or .NET to create its own report.
+
+The launcher resolves the package from its own executable, not the caller's
+working directory. It verifies the terminal, Qt platform plugin, remote host,
+bundled PowerShell/PSReadLine and file database. It supplies package-local Qt
+plugin paths, PATH and MAGIC only to the launched process. A valid user home is
+used as the initial directory, falling back to the package root. Stale local
+profile working directories fall back to an available home/application folder
+with a terminal warning and a report; profile arguments are not rewritten.
+
+Reports are UTF-8 `.log` files in **%LOCALAPPDATA%\Konsole\reports**. If that
+location cannot be created, the fallback is **%TEMP%\Konsole\reports**. The
+launcher, terminal and remote host have separate process reports. Send the
+newest files around the failure time from both computers for remote failures.
+Reports contain system/build and Qt versions, startup paths, missing files,
+Windows errors, nonzero process exit status, and best-effort exception/module
+details. General Qt warnings record severity and source rather than arbitrary
+message text; platform plugin loader messages are included. Terminal output,
+command arguments, environment dumps and pairing keys are excluded. Reports
+can contain local folder/account names: review them before sharing. There is no
+automatic upload. Reports are bounded to about 4 MiB, and old closed reports are
+rotated to retain about twenty recent files; reports still open are preserved.
+
+To open the normal report directory, press Win+R and paste:
+
+```text
+%LOCALAPPDATA%\Konsole\reports
+```
+
+For a package-only preflight without opening the terminal, run from the package
+root in PowerShell:
+
+```powershell
+& '.\Start-Konsole.exe' --check-portable
+```
+
+A missing dependency can prevent `bin\konsole.exe` from reaching its entry
+point. Use the launcher for those failures. If the launcher itself is blocked
+by Windows policy or cannot execute, it cannot produce a report. Crash reporting
+inside a damaged process is best effort; the independent launcher additionally
+records its exit status. This is a diagnostic log, not a memory dump.
+
+The remote side has its own native **Start-RemoteHost.exe**, at the package root
+and in `bin`. **Start-RemoteHost.ps1 now invokes this console launcher** for key
+generation and host startup. It preserves standard input/output and Ctrl+C,
+supervises `konsole-file-host.exe`, and writes a report even if Qt cannot load.
+Relative `--root`, `--cwd`, `--key-file`, `--generate-key` and explicit shell paths
+are made absolute against the caller's original directory before selecting a
+safe child working directory. Unavailable exchange/working folders fail with a
+report rather than silently selecting a different exchange folder. A bare shell
+name such as `pwsh.exe` still uses executable lookup. The key itself is never
+written to reports.
+
+The no-PS1 alternative in the remote instructions can use `Start-RemoteHost.exe`
+instead of `konsole-file-host.exe`, with the same host arguments. Keep the complete
+portable package on the host, rather than copying either EXE alone.
