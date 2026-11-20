@@ -24,6 +24,9 @@ static BOOL WINAPI consoleControl(DWORD type)
 int main(int argc, char **argv)
 {
     Konsole::WindowsReport::initializeQt(L"remote-host");
+#ifdef KONSOLE_PORTABLE_REVISION
+    Konsole::WindowsReport::event(L"source revision", QStringLiteral(KONSOLE_PORTABLE_REVISION).toStdWString().c_str());
+#endif
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("konsole-file-host"));
     QCoreApplication::setOrganizationName(QStringLiteral("KDE"));
