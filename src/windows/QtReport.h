@@ -15,7 +15,7 @@ inline void qtHandler(QtMsgType type, const QMessageLogContext &context, const Q
         const QString origin = QStringLiteral("severity=%1 category=%2 source=%3:%4")
             .arg(int(type)).arg(category, QString::fromUtf8(context.file ? context.file : "")).arg(context.line);
         event(L"Qt message", origin.toStdWString().c_str());
-        if (category.startsWith(QStringLiteral("qt.qpa."))) {
+        if (category == QStringLiteral("qt.qpa.plugin")) {
             event(L"Qt platform error", message.left(4096).toStdWString().c_str());
         }
     }
