@@ -448,6 +448,13 @@ if(WIN32)
         KONSOLE_PORTABLE_REVISION="${portable_revision}")
     target_link_libraries(konsole-launcher PRIVATE shell32 user32)
     install(TARGETS konsole-launcher ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
+    add_executable(konsole-remote-launcher windows/launcher.cpp)
+    set_target_properties(konsole-remote-launcher PROPERTIES OUTPUT_NAME Start-RemoteHost WIN32_EXECUTABLE FALSE AUTOMOC OFF AUTOUIC OFF
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    target_compile_definitions(konsole-remote-launcher PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN
+        KONSOLE_REMOTE_LAUNCHER KONSOLE_PORTABLE_REVISION="${portable_revision}")
+    target_link_libraries(konsole-remote-launcher PRIVATE shell32 user32)
+    install(TARGETS konsole-remote-launcher ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
     install(TARGETS konsole-file-host ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
     install(FILES ../tools/windows/Start-RemoteHost.ps1 ../tools/windows/KonsoleCompletion.ps1 DESTINATION ${KDE_INSTALL_BINDIR})
 endif()
