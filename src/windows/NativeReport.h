@@ -38,7 +38,8 @@ inline std::wstring executableDirectory()
     const DWORD size = GetModuleFileNameW(nullptr, path.data(), DWORD(path.size()));
     if (!size || size == path.size()) { return {}; }
     path.resize(size); const auto slash = path.find_last_of(L"\\/");
-    return slash == std::wstring::npos ? std::wstring() : path.substr(0, slash);
+    return slash == std::wstring::npos ? std::wstring()
+        : path.substr(0, slash == 2 && path[1] == L':' ? 3 : slash);
 }
 inline std::wstring systemError(DWORD code)
 {

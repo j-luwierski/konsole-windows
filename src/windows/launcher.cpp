@@ -47,6 +47,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
         const auto slash = location.find_last_of(L"\\/");
         if (slash != std::wstring::npos && regularFile(location + L"\\konsole.exe")) { root = location.substr(0, slash); }
     }
+    if (root.size() == 2 && root[1] == L':') { root += L'\\'; }
     const auto bin = root + L"\\bin";
     event(L"portable root", root.c_str());
     const wchar_t *required[] = {
