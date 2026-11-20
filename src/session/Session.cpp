@@ -11,6 +11,7 @@
 #include "Session.h"
 #ifdef Q_OS_WIN
 #include "../windows/NativeReport.h"
+#include "../ptyqt/windowsshellintegration.h"
 #endif
 
 // Standard
@@ -510,6 +511,17 @@ void Session::run()
         _uniqueIdentifier = QUuid::createUuid();
     }
 
+#ifdef Q_OS_WIN
+    const QString recoveredPowerShell = WindowsShellIntegration::relocatedPowerShell(_program, QCoreApplication::applicationDirPath());
+    if (!recoveredPowerShell.isEmpty()) {
+        Konsole::WindowsReport::event(L"missing profile PowerShell", _program.toStdWString().c_str());
+        Konsole::WindowsReport::event(L"recovered portable PowerShell", recoveredPowerShell.toStdWString().c_str());
+        terminalWarning(i18n("PowerShell '%1' is unavailable. Using the bundled '%2'.", _program, recoveredPowerShell));
+        _program = recoveredPowerShell;
+        if (_arguments.isEmpty()) { _arguments = QStringList{_program} + WindowsShellIntegration::arguments(); }
+        else { _arguments[0] = _program; }
+    }
+#endif
     QStringList programs = {_program, QString::fromUtf8(qgetenv("SHELL")), QStringLiteral("/bin/sh")};
 
 #if HAVE_GETPWUID
