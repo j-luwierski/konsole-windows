@@ -15,6 +15,9 @@
 #include "ViewManager.h"
 #include "config-konsole.h"
 #include "widgets/ViewContainer.h"
+#ifdef Q_OS_WIN
+#include "windows/QtReport.h"
+#endif
 
 // OS specific
 #include <QApplication>
@@ -133,6 +136,11 @@ static void migrateRenamedConfigKeys()
 // ***
 int main(int argc, char *argv[])
 {
+#ifdef Q_OS_WIN
+    Konsole::WindowsReport::initializeQt(L"konsole");
+    Konsole::WindowsReport::event(L"Konsole version", QStringLiteral(KONSOLE_VERSION).toStdWString().c_str());
+    Konsole::WindowsReport::event(L"source revision", QStringLiteral(KONSOLE_PORTABLE_REVISION).toStdWString().c_str());
+#endif
 #ifdef PROFILE_STARTUP
     QElapsedTimer timer;
     timer.start();
@@ -182,6 +190,9 @@ int main(int argc, char *argv[])
     KAboutData::setApplicationData(about);
 
     KCrash::initialize();
+#ifdef Q_OS_WIN
+    Konsole::WindowsReport::installExceptionHandler();
+#endif
 
     QSharedPointer<QCommandLineParser> parser(new QCommandLineParser);
     parser->setApplicationDescription(about.shortDescription());
@@ -270,6 +281,9 @@ int main(int argc, char *argv[])
     // Since we've allocated the QApplication on the heap for the KDBusService workaround,
     // we need to delete it manually before returning from main().
     int ret = app->exec();
+#ifdef Q_OS_WIN
+    Konsole::WindowsReport::event(L"application exit", std::to_wstring(ret).c_str());
+#endif
     delete app;
     return ret;
 }
