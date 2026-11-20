@@ -9,6 +9,9 @@
 
 // Own
 #include "Session.h"
+#ifdef Q_OS_WIN
+#include "../windows/NativeReport.h"
+#endif
 
 // Standard
 #include <csignal>
@@ -537,6 +540,9 @@ void Session::run()
 
     // if nothing could be found (not even the fallbacks), print a warning and do not run
     if (exec.isEmpty()) {
+#ifdef Q_OS_WIN
+        Konsole::WindowsReport::event(L"shell selection error", L"No interactive shell executable could be found. Check the profile and portable files.");
+#endif
         terminalWarning(i18n("Could not find an interactive shell to start."));
         return;
     }
@@ -635,7 +641,15 @@ void Session::run()
     const auto size = _emulation->imageSize();
     const int lines = size.height();
     const int cols = size.width();
-    int result = _shellProcess->start(exec, arguments, _initialWorkingDir.isEmpty() ? QDir::currentPath() : _initialWorkingDir, fullEnv, cols, lines);
+    QString windowsWorkingDirectory = _initialWorkingDir.isEmpty() ? QDir::currentPath() : _initialWorkingDir;
+    if (!QDir(windowsWorkingDirectory).exists()) {
+        const QString fallback = QDir(QDir::homePath()).exists() ? QDir::homePath() : QCoreApplication::applicationDirPath();
+        Konsole::WindowsReport::event(L"unavailable profile working directory", windowsWorkingDirectory.toStdWString().c_str());
+        Konsole::WindowsReport::event(L"fallback working directory", fallback.toStdWString().c_str());
+        terminalWarning(i18n("Starting directory '%1' is unavailable. Using '%2'.", windowsWorkingDirectory, fallback));
+        windowsWorkingDirectory = fallback;
+    }
+    int result = _shellProcess->start(exec, arguments, windowsWorkingDirectory, fullEnv, cols, lines);
 #endif
 
     if (result < 0) {
