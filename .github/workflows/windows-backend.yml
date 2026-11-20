@@ -1,5 +1,8 @@
 name: Windows ConPTY backend
 on: [push, pull_request, workflow_dispatch]
+concurrency:
+  group: windows-backend-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   backend:
     runs-on: windows-2022
