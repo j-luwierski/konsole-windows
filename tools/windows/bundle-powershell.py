@@ -47,13 +47,13 @@ def bundle(archive, download, require_launchers=False):
                 if info.filename.startswith('powershell/') or info.filename in ('bundled-runtime.json', 'Start-Konsole.exe', 'Start-RemoteHost.exe',
                                                                     'bin/Start-Konsole.exe', 'bin/Start-RemoteHost.exe'):
                     continue
-                with original.open(info) as source, output.open(info, 'w') as target:
-                    shutil.copyfileobj(source, target)
+                with original.open(info) as source:
+                    output.writestr(info.filename, source.read())
             for info in shell.infolist():
                 # Archive contents stay intact, including licenses and the .NET runtime.
                 name = 'powershell/' + info.filename
-                with shell.open(info) as source, output.open(name, 'w') as target:
-                    shutil.copyfileobj(source, target)
+                with shell.open(info) as source:
+                    output.writestr(name, source.read())
             # Craft filters unrelated executable names; retain its konsole-*
             # entries, then add the user-facing entry points explicitly.
             for launcher, source in launchers.items():
