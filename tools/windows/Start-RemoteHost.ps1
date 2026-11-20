@@ -11,9 +11,9 @@ param(
     [string]$PowerShellPath = ''
 )
 $ErrorActionPreference = 'Stop'
-$hostExecutable = Join-Path $PSScriptRoot 'konsole-file-host.exe'
-if (-not (Test-Path -LiteralPath $hostExecutable -PathType Leaf)) { throw 'Keep this script in the portable bin folder with konsole-file-host.exe.' }
-if (-not (Test-Path -LiteralPath $ExchangePath -PathType Container)) { throw 'ExchangePath must be an existing shared folder.' }
+$hostExecutable = Join-Path $PSScriptRoot 'Start-RemoteHost.exe'
+if (-not (Test-Path -LiteralPath $hostExecutable -PathType Leaf)) { throw 'Keep this script in the portable bin folder with Start-RemoteHost.exe and konsole-file-host.exe.' }
+# The native launcher validates ExchangePath and writes a report on failure.
 $KeyFile = [IO.Path]::GetFullPath($KeyFile)
 $exchangeFullPath = [IO.Path]::GetFullPath($ExchangePath).TrimEnd([IO.Path]::DirectorySeparatorChar)
 if ($KeyFile.StartsWith($exchangeFullPath + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Keep KeyFile outside the exchange folder.' }

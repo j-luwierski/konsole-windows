@@ -38,7 +38,7 @@ def bundle(archive, download):
         temporary = archive.with_suffix('.bundling.zip')
         with zipfile.ZipFile(temporary, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as output:
             for info in original.infolist():
-                if info.filename.startswith('powershell/') or info.filename in ('bundled-runtime.json', 'Start-Konsole.exe'):
+                if info.filename.startswith('powershell/') or info.filename in ('bundled-runtime.json', 'Start-Konsole.exe', 'Start-RemoteHost.exe'):
                     continue
                 with original.open(info) as source, output.open(info, 'w') as target:
                     shutil.copyfileobj(source, target)
@@ -47,8 +47,9 @@ def bundle(archive, download):
                 name = 'powershell/' + info.filename
                 with shell.open(info) as source, output.open(name, 'w') as target:
                     shutil.copyfileobj(source, target)
-            if 'bin/Start-Konsole.exe' in original.namelist():
-                output.writestr('Start-Konsole.exe', original.read('bin/Start-Konsole.exe'))
+            for launcher in ('Start-Konsole.exe', 'Start-RemoteHost.exe'):
+                if 'bin/' + launcher in original.namelist():
+                    output.writestr(launcher, original.read('bin/' + launcher))
             output.writestr('bundled-runtime.json', json.dumps(metadata, indent=2) + '\n')
     temporary.replace(archive)
     archive.with_name('bundled-runtime.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
