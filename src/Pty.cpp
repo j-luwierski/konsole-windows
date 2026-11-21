@@ -397,6 +397,7 @@ int Pty::flatpakSpawnProcessId() const
 
 #include "ptyqt/conptyprocess.h"
 #include "fileremote/FileRemoteProcess.h"
+#include "windows/ProcessSnapshot.h"
 
 using Konsole::Pty;
 
@@ -532,7 +533,7 @@ void Pty::closePty()
 
 int Pty::foregroundProcessGroup() const
 {
-    return 0;
+    return int(Konsole::WindowsProcess::sshDescendant(DWORD(shellProcessId())));
 }
 
 int Pty::shellProcessId() const

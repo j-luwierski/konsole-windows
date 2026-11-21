@@ -206,7 +206,7 @@ target_sources(konsoleprivate PRIVATE
 
 if(WIN32)
     target_compile_definitions(konsoleprivate PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
-    target_link_libraries(konsoleprivate PRIVATE advapi32)
+    target_link_libraries(konsoleprivate PRIVATE advapi32 shell32)
     # windows conpty backend
     target_sources(konsoleprivate PRIVATE
         ptyqt/iptyprocess.cpp

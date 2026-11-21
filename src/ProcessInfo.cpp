@@ -1393,6 +1393,39 @@ private:
 };
 #endif
 
+#ifdef Q_OS_WIN
+#include "windows/ProcessSnapshot.h"
+class WindowsProcessInfo : public ProcessInfo
+{
+public:
+    explicit WindowsProcessInfo(int pid) : ProcessInfo(pid) {}
+protected:
+    void readProcessInfo(int pid) override
+    {
+        if (readProcessName(pid)) { setPid(pid); }
+    }
+    bool readProcessName(int pid) override
+    {
+        HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, DWORD(pid));
+        if (!process) { return false; }
+        wchar_t path[32768]; DWORD size = 32768;
+        const bool ok = QueryFullProcessImageNameW(process, 0, path, &size);
+        CloseHandle(process);
+        if (ok) { setName(QFileInfo(QString::fromWCharArray(path, int(size))).completeBaseName().toLower()); }
+        return ok;
+    }
+    bool readArguments(int pid) override
+    {
+        const auto values = Konsole::WindowsProcess::arguments(DWORD(pid));
+        clearArguments();
+        for (const auto &value : values) { addArgument(value); }
+        return !values.isEmpty();
+    }
+    bool readCurrentDir(int) override { return false; }
+    void readUserName() override {}
+};
+#endif
+
 ProcessInfo *ProcessInfo::newInstance(int pid, int sessionPid, QByteArrayView tty)
 {
     ProcessInfo *info;
@@ -1417,6 +1450,8 @@ ProcessInfo *ProcessInfo::newInstance(int pid, int sessionPid, QByteArrayView tt
     info = new FreeBSDProcessInfo(pid);
 #elif defined(Q_OS_OPENBSD)
     info = new OpenBSDProcessInfo(pid);
+#elif defined(Q_OS_WIN)
+    info = new WindowsProcessInfo(pid);
 #else
     info = new NullProcessInfo(pid);
 #endif

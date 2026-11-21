@@ -11,6 +11,7 @@
 #include "../SSHProcessInfo.h"
 #ifdef Q_OS_WIN
 #include "fileremote/FileRemoteProcess.h"
+#include <windows.h>
 #endif
 
 #include <QAction>
@@ -21,6 +22,8 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QKeyEvent>
+#include <QInputDialog>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMimeData>
 #include <QMimeDatabase>
@@ -97,10 +100,19 @@ static TextFilePreview::Loader sshFileLoader(Session *session)
 
         QString path = requestedPath;
         if (QDir::isRelativePath(path)) {
-            const QString remoteDirectory = guardedSession->reportedWorkingDirectory();
+            QString remoteDirectory = guardedSession->reportedWorkingDirectory();
             if (remoteDirectory.isEmpty()) {
-                fail(QObject::tr("The remote shell has not reported its current directory. Configure an OSC 7 prompt in the remote shell, or hover an absolute path."));
-                return;
+                remoteDirectory = guardedSession->property("sshPreviewDirectory").toString();
+            }
+            if (remoteDirectory.isEmpty()) {
+                bool accepted = false;
+                remoteDirectory = QInputDialog::getText(QApplication::activeWindow(), QObject::tr("Remote directory"),
+                    QObject::tr("The SSH shell does not report its directory. Enter the absolute remote directory containing this file. Enable OSC 7 in the remote prompt to track directory changes automatically."),
+                    QLineEdit::Normal, QStringLiteral("/"), &accepted);
+                if (!accepted || !remoteDirectory.startsWith(QLatin1Char('/'))) {
+                    fail(QObject::tr("An absolute remote directory is required.")); return;
+                }
+                guardedSession->setProperty("sshPreviewDirectory", remoteDirectory);
             }
             path = QDir::cleanPath(remoteDirectory + QLatin1Char('/') + path);
         }
@@ -162,6 +174,7 @@ static TextFilePreview::Loader sshFileLoader(Session *session)
 
         auto *process = new QProcess(receiver);
         auto completed = std::make_shared<bool>(false);
+        auto interactive = std::make_shared<bool>(false);
         auto finishWithError = [process, completed, callback](const QString &message) mutable {
             if (*completed) { return; }
             *completed = true;
@@ -174,14 +187,25 @@ static TextFilePreview::Loader sshFileLoader(Session *session)
             }
         });
         QObject::connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), process,
-            [process, completed, callback, showInfo, limit](int exitCode, QProcess::ExitStatus status) mutable {
+            [process, completed, interactive, callback, showInfo, limit, sshProgram, arguments](int exitCode, QProcess::ExitStatus status) mutable {
                 if (*completed) { return; }
-                *completed = true;
                 const QByteArray output = process->readAllStandardOutput();
                 const QByteArray errorOutput = process->readAllStandardError();
+                if (status == QProcess::NormalExit && exitCode != 0 && !*interactive
+                    && (errorOutput.contains("Permission denied") || errorOutput.contains("Host key verification failed"))) {
+                    *interactive = true;
+                    QStringList retry = arguments;
+                    retry.replaceInStrings(QStringLiteral("BatchMode=yes"), QStringLiteral("BatchMode=no"));
+                    process->setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments *args) {
+                        args->flags |= CREATE_NEW_CONSOLE;
+                    });
+                    process->start(sshProgram, retry, QIODevice::ReadOnly);
+                    return;
+                }
+                *completed = true;
                 if (status != QProcess::NormalExit || exitCode != 0) {
                     const QString details = QString::fromLocal8Bit(errorOutput.left(8192)).trimmed();
-                    callback({{}, details.isEmpty() ? QObject::tr("SSH file request failed (exit code %1). Check that key-based SSH access is available.").arg(exitCode) : details});
+                    callback({{}, details.isEmpty() ? QObject::tr("SSH file request failed (exit code %1).").arg(exitCode) : details});
                     process->deleteLater();
                     return;
                 }
@@ -214,7 +238,7 @@ static TextFilePreview::Loader sshFileLoader(Session *session)
                 callback(content);
                 process->deleteLater();
             });
-        QTimer::singleShot(30000, process, [process, finishWithError] {
+        QTimer::singleShot(120000, process, [process, finishWithError] {
             if (process->state() != QProcess::NotRunning) {
                 process->kill();
                 finishWithError(QObject::tr("Timed out while requesting a file over SSH."));
@@ -366,6 +390,22 @@ QList<QAction *> FileFilterHotSpot::actions()
         QGuiApplication::clipboard()->setText(sshRemote ? path : FileMetadata::clipboardPath(path));
     });
     QList<QAction *> result{action};
+#ifdef Q_OS_WIN
+    if (sshRemote) {
+        auto *directory = new QAction(i18n("Set Remote Preview Directory…"), this);
+        connect(directory, &QAction::triggered, this, [this] {
+            bool accepted = false;
+            const QString path = QInputDialog::getText(QApplication::activeWindow(), i18n("Remote directory"),
+                i18n("Absolute directory on the SSH host:"), QLineEdit::Normal,
+                _session->property("sshPreviewDirectory").toString(), &accepted);
+            if (accepted && path.startsWith(QLatin1Char('/'))) {
+                _session->setProperty("sshPreviewDirectory", path);
+            }
+        });
+        result << directory;
+    }
+#endif
+
     const QString path = TextPreviewContent::pathWithoutLocation(_filePath);
     if (isRemote() || sshRemote || QFileInfo(path).isFile()) {
         auto *copyContents = new QAction(i18n("Copy Entire File Contents"), this);

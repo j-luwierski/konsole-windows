@@ -92,7 +92,7 @@ QSharedPointer<HotSpot> FileFilter::newHotSpot(int startLine, int startColumn, i
 #ifdef Q_OS_WIN
     const bool fileRemote = _session->arguments().contains(QStringLiteral("--konsole-file-remote"));
     const bool sshRemote = !fileRemote && _session->isRemote();
-    if (fileRemote || sshRemote) {
+    if (fileRemote) {
         const QString candidate = capturedTexts.first();
         if (!candidate.contains(QLatin1Char('/')) && !candidate.contains(QLatin1Char('\\'))
             && !candidate.contains(QLatin1Char('.')) && !candidate.startsWith(QLatin1Char('"')) && !candidate.startsWith(QLatin1Char('\''))) {
