@@ -1345,6 +1345,14 @@ bool Session::isRemote()
     return (process->name(&ok) == QLatin1String("ssh") && ok);
 }
 
+QString Session::reportedWorkingDirectory() const
+{
+    if (!_reportedWorkingUrl.isLocalFile()) {
+        return {};
+    }
+    return QDir::cleanPath(_reportedWorkingUrl.path(QUrl::FullyDecoded));
+}
+
 QString Session::getDynamicTitle()
 {
     ProcessInfo *process = getProcessInfo();

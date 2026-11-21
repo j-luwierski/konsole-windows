@@ -90,7 +90,9 @@ QSharedPointer<HotSpot> FileFilter::newHotSpot(int startLine, int startColumn, i
     }
 
 #ifdef Q_OS_WIN
-    if (_session->arguments().contains(QStringLiteral("--konsole-file-remote"))) {
+    const bool fileRemote = _session->arguments().contains(QStringLiteral("--konsole-file-remote"));
+    const bool sshRemote = !fileRemote && _session->isRemote();
+    if (fileRemote || sshRemote) {
         const QString candidate = capturedTexts.first();
         if (!candidate.contains(QLatin1Char('/')) && !candidate.contains(QLatin1Char('\\'))
             && !candidate.contains(QLatin1Char('.')) && !candidate.startsWith(QLatin1Char('"')) && !candidate.startsWith(QLatin1Char('\''))) {
@@ -105,10 +107,15 @@ QSharedPointer<HotSpot> FileFilter::newHotSpot(int startLine, int startColumn, i
     if (path.startsWith(QStringLiteral("//"))) {
         return nullptr;
     }
-    if (QDir::isRelativePath(path)) {
+    if (sshRemote) {
+        const QString remoteDirectory = _session->reportedWorkingDirectory();
+        if (QDir::isRelativePath(path) && !remoteDirectory.isEmpty()) {
+            path = QDir::cleanPath(remoteDirectory + QLatin1Char('/') + path);
+        }
+    } else if (QDir::isRelativePath(path)) {
         path = QDir(_dirPath).filePath(path);
     }
-    if (!_session->arguments().contains(QStringLiteral("--konsole-file-remote")) && !QFileInfo(path).isFile() && !QFileInfo(path).isDir()) {
+    if (!fileRemote && !sshRemote && !QFileInfo(path).isFile() && !QFileInfo(path).isDir()) {
         return nullptr;
     }
     return QSharedPointer<HotSpot>(new FileFilterHotSpot(startLine, startColumn, endLine, endColumn, capturedTexts, path + location, _session));
@@ -173,6 +180,13 @@ void FileFilter::process()
     if (_session->arguments().contains(QStringLiteral("--konsole-file-remote"))) {
         _dirPath = _session->currentWorkingDirectory(); RegExpFilter::process(); return;
     }
+#ifdef Q_OS_WIN
+    if (_session->isRemote()) {
+        _dirPath = _session->reportedWorkingDirectory();
+        RegExpFilter::process();
+        return;
+    }
+#endif
     const QDir dir(_session->currentWorkingDirectory());
     // Do not re-process.
     if (_dirPath != dir.canonicalPath() + QLatin1Char('/')) {

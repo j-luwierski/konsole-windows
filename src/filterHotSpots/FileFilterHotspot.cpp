@@ -8,6 +8,7 @@
 #include "FileFilterHotspot.h"
 #include "TextFilePreview.h"
 #include "FileMetadata.h"
+#include "../SSHProcessInfo.h"
 #ifdef Q_OS_WIN
 #include "fileremote/FileRemoteProcess.h"
 #endif
@@ -17,6 +18,7 @@
 #include <QBuffer>
 #include <QClipboard>
 #include <QDrag>
+#include <QDir>
 #include <QFileInfo>
 #include <QKeyEvent>
 #include <QMenu>
@@ -24,8 +26,12 @@
 #include <QMimeDatabase>
 #include <QMouseEvent>
 #include <QRegularExpression>
+#include <QProcess>
+#include <QPointer>
+#include <QStandardPaths>
 #include <QTimer>
 #include <QToolTip>
+#include <memory>
 
 #include <KFileItem>
 #include <KFileItemActions>
@@ -46,6 +52,178 @@
 #include "terminalDisplay/TerminalDisplay.h"
 
 using namespace Konsole;
+
+#ifdef Q_OS_WIN
+static QString posixShellQuote(QString value)
+{
+    value.replace(QLatin1Char('\''), QStringLiteral("'\\''"));
+    return QLatin1Char('\'') + value + QLatin1Char('\'');
+}
+
+static TextFilePreview::Loader sshFileLoader(Session *session)
+{
+    QPointer<Session> guardedSession(session);
+    return [guardedSession](const QString &requestedPath, qint64 maximumBytes, bool showInfo, bool, QObject *receiver, TextFilePreview::Completion callback) {
+        const auto fail = [&callback](const QString &message) {
+            callback({{}, message});
+        };
+        if (!guardedSession || !guardedSession->isRemote()) {
+            fail(QObject::tr("The SSH session is no longer active."));
+            return;
+        }
+
+        ProcessInfo *processInfo = guardedSession->getProcessInfo();
+        if (!processInfo) {
+            fail(QObject::tr("Could not read the active SSH connection."));
+            return;
+        }
+        processInfo->refreshArguments();
+        SSHProcessInfo sshInfo(*processInfo);
+        if (sshInfo.host().isEmpty()) {
+            fail(QObject::tr("Could not determine the SSH host. Use a direct ssh host or user@host command."));
+            return;
+        }
+        bool argumentsOk = false;
+        const QVector<QString> originalArguments = processInfo->arguments(&argumentsOk);
+        QString sshProgram = QStandardPaths::findExecutable(QStringLiteral("ssh"));
+        if (sshProgram.isEmpty() && argumentsOk && !originalArguments.isEmpty()
+            && QFileInfo(originalArguments.first()).isExecutable()) {
+            sshProgram = originalArguments.first();
+        }
+        if (sshProgram.isEmpty()) {
+            fail(QObject::tr("OpenSSH (ssh.exe) was not found in PATH."));
+            return;
+        }
+
+        QString path = requestedPath;
+        if (QDir::isRelativePath(path)) {
+            const QString remoteDirectory = guardedSession->reportedWorkingDirectory();
+            if (remoteDirectory.isEmpty()) {
+                fail(QObject::tr("The remote shell has not reported its current directory. Configure an OSC 7 prompt in the remote shell, or hover an absolute path."));
+                return;
+            }
+            path = QDir::cleanPath(remoteDirectory + QLatin1Char('/') + path);
+        }
+
+        const qint64 limit = qBound(qint64(1), maximumBytes, qint64(256) * 1024 * 1024);
+        const QString command = QStringLiteral(
+            "LC_ALL=C; export LC_ALL; p=%1; "
+            "if [ ! -f \"$p\" ]; then echo 'Remote path is not a regular file' >&2; exit 2; fi; "
+            "size=$(wc -c < \"$p\" | tr -d ' '); "
+            "printf '__KONSOLE_META__%s\\n' \"$size\"; "
+            "printf 'File: %s\\n' \"$p\"; "
+            "printf 'Created: '; stat -c '%w' -- \"$p\" 2>/dev/null; "
+            "printf 'Modified: '; stat -c '%y' -- \"$p\" 2>/dev/null; "
+            "printf 'Permissions: '; stat -c '%A (%a)' -- \"$p\" 2>/dev/null; "
+            "printf 'Owner: '; stat -c '%U' -- \"$p\" 2>/dev/null; "
+            "printf 'Group: '; stat -c '%G' -- \"$p\" 2>/dev/null; "
+            "printf 'Type: '; file -b -- \"$p\" 2>/dev/null || printf 'file utility unavailable'; "
+            "printf '\\n__KONSOLE_DATA__\\n'; "
+            "if [ \"$size\" -le %2 ]; then head -c %2 -- \"$p\" | base64 | tr -d '\\r\\n'; fi; printf '\\n'")
+                .arg(posixShellQuote(path), QString::number(limit));
+
+        QStringList arguments{QStringLiteral("-T"), QStringLiteral("-o"), QStringLiteral("BatchMode=yes"),
+                              QStringLiteral("-o"), QStringLiteral("ConnectTimeout=5")};
+        QString destination;
+        if (argumentsOk) {
+            static const QString optionsWithValue = QStringLiteral("bcDeFIiJLlmOopRSWw");
+            for (qsizetype i = 1; i < originalArguments.size(); ++i) {
+                const QString &argument = originalArguments.at(i);
+                if (argument == QStringLiteral("--")) {
+                    if (i + 1 < originalArguments.size()) { destination = originalArguments.at(i + 1); }
+                    break;
+                }
+                if (!argument.startsWith(QLatin1Char('-')) || argument == QStringLiteral("-")) {
+                    destination = argument;
+                    break;
+                }
+                const QChar option = argument.size() > 1 ? argument.at(1) : QLatin1Char('\0');
+                if (!optionsWithValue.contains(option)) { continue; }
+                QString value;
+                if (argument.size() > 2) {
+                    value = argument.mid(2);
+                } else if (i + 1 < originalArguments.size()) {
+                    value = originalArguments.at(++i);
+                }
+                if (option == QLatin1Char('F') || option == QLatin1Char('i') || option == QLatin1Char('J')
+                    || option == QLatin1Char('S') || option == QLatin1Char('o') || option == QLatin1Char('p')
+                    || option == QLatin1Char('l')) {
+                    arguments << argument;
+                    if (argument.size() == 2 && !value.isEmpty()) { arguments << value; }
+                }
+            }
+        }
+        if (destination.isEmpty()) {
+            destination = sshInfo.host();
+            if (!sshInfo.userName().isEmpty()) { destination.prepend(sshInfo.userName() + QLatin1Char('@')); }
+            if (!sshInfo.port().isEmpty()) { arguments << QStringLiteral("-p") << sshInfo.port(); }
+        }
+        arguments << destination << command;
+
+        auto *process = new QProcess(receiver);
+        auto completed = std::make_shared<bool>(false);
+        auto finishWithError = [process, completed, callback](const QString &message) mutable {
+            if (*completed) { return; }
+            *completed = true;
+            callback({{}, message});
+            process->deleteLater();
+        };
+        QObject::connect(process, &QProcess::errorOccurred, process, [finishWithError](QProcess::ProcessError error) mutable {
+            if (error == QProcess::FailedToStart) {
+                finishWithError(QObject::tr("Could not start ssh.exe. Check the OpenSSH installation and PATH."));
+            }
+        });
+        QObject::connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), process,
+            [process, completed, callback, showInfo, limit](int exitCode, QProcess::ExitStatus status) mutable {
+                if (*completed) { return; }
+                *completed = true;
+                const QByteArray output = process->readAllStandardOutput();
+                const QByteArray errorOutput = process->readAllStandardError();
+                if (status != QProcess::NormalExit || exitCode != 0) {
+                    const QString details = QString::fromLocal8Bit(errorOutput.left(8192)).trimmed();
+                    callback({{}, details.isEmpty() ? QObject::tr("SSH file request failed (exit code %1). Check that key-based SSH access is available.").arg(exitCode) : details});
+                    process->deleteLater();
+                    return;
+                }
+                const QByteArray metaMarker("__KONSOLE_META__");
+                const QByteArray dataMarker("\n__KONSOLE_DATA__\n");
+                const int metaStart = output.indexOf(metaMarker);
+                const int dataStart = output.indexOf(dataMarker, metaStart < 0 ? 0 : metaStart + metaMarker.size());
+                if (metaStart < 0 || dataStart < 0) {
+                    callback({{}, QObject::tr("SSH returned an invalid file preview response.")});
+                    process->deleteLater();
+                    return;
+                }
+                const QByteArray sizeLine = output.mid(metaStart + metaMarker.size(), output.indexOf('\n', metaStart) - metaStart - metaMarker.size()).trimmed();
+                bool sizeOk = false;
+                const qint64 remoteSize = sizeLine.toLongLong(&sizeOk);
+                QString metadata = QString::fromUtf8(output.mid(output.indexOf('\n', metaStart) + 1, dataStart - output.indexOf('\n', metaStart) - 1)).trimmed();
+                if (sizeOk && remoteSize > limit) {
+                    callback({{}, QObject::tr("This file exceeds the preview size limit. Increase the limit in Settings → Configure Konsole → Thumbnails / File previews."), false,
+                              showInfo ? metadata : QString()});
+                    process->deleteLater();
+                    return;
+                }
+                const QByteArray encoded = output.mid(dataStart + dataMarker.size()).trimmed();
+                const QByteArray data = QByteArray::fromBase64(encoded);
+                auto content = TextPreviewContent::readBytes(data, limit);
+                if (showInfo) { content.metadata = metadata; }
+                if (content.binary && showInfo) {
+                    content.error += QObject::tr("\n\nRemote file identification:\n%1").arg(metadata.section(QLatin1Char('\n'), -1));
+                }
+                callback(content);
+                process->deleteLater();
+            });
+        QTimer::singleShot(30000, process, [process, finishWithError] {
+            if (process->state() != QProcess::NotRunning) {
+                process->kill();
+                finishWithError(QObject::tr("Timed out while requesting a file over SSH."));
+            }
+        });
+        process->start(sshProgram, arguments, QIODevice::ReadOnly);
+    };
+}
+#endif
 
 FileFilterHotSpot::FileFilterHotSpot(int startLine,
                                      int startColumn,
@@ -68,7 +246,7 @@ void FileFilterHotSpot::activate(QObject *)
         return;
     }
 
-    if (isRemote()) { return; }
+    if (isRemote() || (_session && _session->isRemote())) { return; }
 
     QString editorExecPath;
     int firstBlankIdx = -1;
@@ -182,15 +360,17 @@ QList<QAction *> FileFilterHotSpot::actions()
 {
     QAction *action = new QAction(i18n("Copy Full File Path"), this);
     action->setIcon(QIcon::fromTheme(QStringLiteral("edit-copy-path")));
-    connect(action, &QAction::triggered, this, [this] {
-        QGuiApplication::clipboard()->setText(FileMetadata::clipboardPath(_filePath));
+    const bool sshRemote = !isRemote() && _session && _session->isRemote();
+    connect(action, &QAction::triggered, this, [this, sshRemote] {
+        const QString path = TextPreviewContent::pathWithoutLocation(_filePath);
+        QGuiApplication::clipboard()->setText(sshRemote ? path : FileMetadata::clipboardPath(path));
     });
     QList<QAction *> result{action};
     const QString path = TextPreviewContent::pathWithoutLocation(_filePath);
-    if (isRemote() || QFileInfo(path).isFile()) {
+    if (isRemote() || sshRemote || QFileInfo(path).isFile()) {
         auto *copyContents = new QAction(i18n("Copy Entire File Contents"), this);
         copyContents->setIcon(QIcon::fromTheme(QStringLiteral("edit-copy")));
-        connect(copyContents, &QAction::triggered, this, [this, path] {
+        connect(copyContents, &QAction::triggered, this, [this, path, sshRemote] {
             const qint64 maximum = qBound(1, KonsoleSettings::self()->textFilePreviewMaximumMiB(), 256) * qint64(1024 * 1024);
 #ifdef Q_OS_WIN
             if (isRemote()) {
@@ -199,6 +379,10 @@ QList<QAction *> FileFilterHotSpot::actions()
                     [arguments](const QString &file, qint64 limit, bool info, bool textOnly, QObject *receiver, TextFilePreview::Completion callback) {
                         FileRemote::Process::requestFile(arguments, file, limit, info, textOnly, receiver, std::move(callback));
                     });
+                return;
+            }
+            if (sshRemote) {
+                TextFilePreview::copyFileContents(path, maximum, QApplication::activeWindow(), sshFileLoader(_session));
                 return;
             }
 #endif
@@ -211,7 +395,7 @@ QList<QAction *> FileFilterHotSpot::actions()
 
 QList<QAction *> FileFilterHotSpot::setupMenu(QMenu *menu)
 {
-    if (isRemote()) { return {}; }
+    if (isRemote() || (_session && _session->isRemote())) { return {}; }
     if (!_menuActions)
         _menuActions = new KFileItemActions;
     const QList<QAction *> currentActions = menu->actions();
@@ -240,7 +424,7 @@ QPointer<KIO::PreviewJob> FileFilterHotSpot::_previewJob;
 
 void FileFilterHotSpot::requestThumbnail(Qt::KeyboardModifiers modifiers, const QPoint &pos)
 {
-    if (isRemote() || KonsoleSettings::self()->enableTextFilePreviews() || !KonsoleSettings::self()->enableThumbnails()) {
+    if (isRemote() || (_session && _session->isRemote()) || KonsoleSettings::self()->enableTextFilePreviews() || !KonsoleSettings::self()->enableThumbnails()) {
         return;
     }
 
@@ -358,6 +542,14 @@ void FileFilterHotSpot::mouseMoveEvent(TerminalDisplay *td, QMouseEvent *ev)
             }, arguments.join(QLatin1Char(' ')));
         return;
     }
+    if (_session && _session->isRemote()) {
+        ProcessInfo *processInfo = _session->getProcessInfo();
+        processInfo->refreshArguments();
+        const SSHProcessInfo sshInfo(*processInfo);
+        _textPreview->hoverFile(_filePath, ev->globalPosition().toPoint(), options, sshFileLoader(_session),
+                                QStringLiteral("ssh:%1").arg(sshInfo.host()));
+        return;
+    }
 #endif
     _textPreview->hoverFile(_filePath, ev->globalPosition().toPoint(), options);
 }
@@ -379,7 +571,7 @@ void FileFilterHotSpot::keyPressEvent(Konsole::TerminalDisplay *td, QKeyEvent *e
 
 bool FileFilterHotSpot::hasDragOperation() const
 {
-    return !isRemote();
+    return !isRemote() && !(_session && _session->isRemote());
 }
 
 void FileFilterHotSpot::startDrag(TerminalDisplay *td, QPoint dragPosition)

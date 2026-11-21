@@ -100,6 +100,14 @@ TextPreviewContent TextPreviewContent::readText(const QString &path, qint64 maxi
     if (bytes.size() > maximumBytes) {
         return {{}, QObject::tr("The file grew beyond the preview size limit.")};
     }
+    return readBytes(bytes, maximumBytes);
+}
+
+TextPreviewContent TextPreviewContent::readBytes(const QByteArray &bytes, qint64 maximumBytes)
+{
+    if (bytes.size() > maximumBytes) {
+        return {{}, QObject::tr("This file exceeds the preview size limit. Increase the limit in Settings → Configure Konsole → Thumbnails / File previews.")};
+    }
     const auto mime = QMimeDatabase().mimeTypeForData(bytes);
     if (!bytes.isEmpty() && mime.isValid() && mime.name() != QStringLiteral("application/octet-stream")
         && !mime.inherits(QStringLiteral("text/plain")) && !mime.inherits(QStringLiteral("application/xml"))

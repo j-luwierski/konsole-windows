@@ -178,6 +178,11 @@ public:
      */
     bool isRemote();
 
+    /** Returns the path reported by the active shell through OSC 7, if any.
+     * For SSH sessions this is the remote POSIX working directory.
+     */
+    QString reportedWorkingDirectory() const;
+
     /**
      * Sets the format used by this session for tab titles.
      *
