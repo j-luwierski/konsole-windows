@@ -99,6 +99,7 @@ void TextFilePreview::hoverFile(const QString &path, const QPoint &position, con
     if (_popup->isVisible() && _enteredPopup && !_popup->geometry().contains(position)) {
         dismiss();
     }
+    const bool wasHoveringPath = _hoveringPath;
     _leaveTimer.stop();
     _hoveringPath = true;
     _options = options;
@@ -106,7 +107,7 @@ void TextFilePreview::hoverFile(const QString &path, const QPoint &position, con
     if (filePath == _path && sourceId == _sourceId && _popup->isVisible()) {
         return;
     }
-    if (filePath != _path || sourceId != _sourceId || position != _anchor || !_showTimer.isActive()) {
+    if (filePath != _path || sourceId != _sourceId || position != _anchor || !wasHoveringPath) {
         ++_generation;
         _popup->hide();
         _path = filePath; _sourceId = sourceId; _loader = std::move(loader);

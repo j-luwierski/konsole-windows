@@ -65,6 +65,29 @@ private Q_SLOTS:
         QTRY_COMPARE_WITH_TIMEOUT(QApplication::clipboard()->text(), text, 3000);
         QCOMPARE(requests, 2); preview->dismiss();
     }
+    void stationaryEventsDoNotCancelIdentification()
+    {
+        QWidget owner; owner.resize(300, 180); owner.show();
+        QTest::qWait(30);
+        auto *preview = TextFilePreview::forWidget(&owner);
+        TextPreviewOptions options; options.delayMs = 100;
+        const QPoint point = owner.mapToGlobal(QPoint(40, 40)); QCursor::setPos(point);
+        int requests = 0;
+        TextFilePreview::Loader loader = [&](const QString &, qint64, bool, bool, QObject *receiver, TextFilePreview::Completion done) {
+            ++requests;
+            QTimer::singleShot(300, receiver, [done] { done({QStringLiteral("file: PE32+ executable"), {}, false, QStringLiteral("Size: 123")}); });
+        };
+        QTimer events;
+        connect(&events, &QTimer::timeout, &owner, [&] {
+            preview->hoverFile(QStringLiteral("program.exe"), point, options, loader);
+        });
+        preview->hoverFile(QStringLiteral("program.exe"), point, options, loader);
+        events.start(40);
+        QTRY_VERIFY_WITH_TIMEOUT(preview->popup()->isVisible(), 2000);
+        QCOMPARE(requests, 1);
+        QVERIFY(preview->editor()->toPlainText().contains(QStringLiteral("PE32+")));
+        events.stop(); preview->dismiss();
+    }
     void fileIdentificationFallback()
     {
         QTemporaryDir directory;
