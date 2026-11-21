@@ -20,7 +20,7 @@ inline QString bundledPowerShell(const QString &applicationDirectory)
     const QDir root(QDir(applicationDirectory).absoluteFilePath(QStringLiteral("../powershell")));
     const QString executable = QDir::cleanPath(root.filePath(QStringLiteral("pwsh.exe")));
     if (QFileInfo::exists(executable) && QFileInfo::exists(root.filePath(QStringLiteral("Modules/PSReadLine/PSReadLine.psd1")))) {
-        return QDir::toNativeSeparators(executable);
+        return QDir::fromNativeSeparators(executable);
     }
     return {};
 }
@@ -110,7 +110,17 @@ function global:prompt {
             [Console]::Write(([char]27 + ']7;' + $konsoleDirectory.AbsoluteUri + [char]7))
         }
     } catch {}
-    if ($global:KonsoleOriginalPrompt) { & $global:KonsoleOriginalPrompt } else { 'PS> ' }
+    if ($global:KonsoleOriginalPrompt) {
+        $konsolePromptOutput = & $global:KonsoleOriginalPrompt
+        if ($PWD.Provider.Name -eq 'FileSystem') {
+            $konsoleNativeDirectory = $PWD.ProviderPath
+            foreach ($konsolePromptPart in $konsolePromptOutput) {
+                if ($konsolePromptPart -is [string]) {
+                    $konsolePromptPart.Replace($konsoleNativeDirectory, $konsoleNativeDirectory.Replace('\', '/'))
+                } else { $konsolePromptPart }
+            }
+        } else { $konsolePromptOutput }
+    } else { 'PS> ' }
 }
 )PS");
     script.replace(QStringLiteral("__KONSOLE_COMPLETION__"), completionScript());

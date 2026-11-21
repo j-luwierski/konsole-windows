@@ -222,7 +222,7 @@ static QString checkFile(const QStringList &dirList, const QString &filePath)
     for (const QString &root : dirList) {
         QFileInfo info(root, filePath);
         if (info.exists()) {
-            return QDir::toNativeSeparators(info.filePath());
+            return QDir::fromNativeSeparators(info.filePath());
         }
     }
     return QString();
@@ -249,7 +249,7 @@ static QString GetWindowsShell()
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     QString windir = env.value(QStringLiteral("windir"), QStringLiteral("C:\\Windows"));
     QFileInfo info(windir, QStringLiteral("System32\\cmd.exe"));
-    return QDir::toNativeSeparators(info.filePath());
+    return QDir::fromNativeSeparators(info.filePath());
 }
 #endif
 

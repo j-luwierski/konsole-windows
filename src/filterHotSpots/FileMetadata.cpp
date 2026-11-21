@@ -33,7 +33,7 @@ QString FileMetadata::localFilePath(QUrl url, bool remoteHost)
 
 QString FileMetadata::clipboardPath(const QString &path)
 {
-    return QDir::toNativeSeparators(QFileInfo(TextPreviewContent::pathWithoutLocation(path)).absoluteFilePath());
+    return QDir::fromNativeSeparators(QFileInfo(TextPreviewContent::pathWithoutLocation(path)).absoluteFilePath());
 }
 
 #ifdef Q_OS_WIN

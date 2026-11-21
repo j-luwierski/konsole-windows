@@ -142,7 +142,7 @@ private Q_SLOTS:
 #else
         QVERIFY(description.contains(QStringLiteral("Group:")));
 #endif
-        QCOMPARE(FileMetadata::clipboardPath(path + QStringLiteral(":12:3")), QDir::toNativeSeparators(path));
+        QCOMPARE(FileMetadata::clipboardPath(path + QStringLiteral(":12:3")), QDir::fromNativeSeparators(path));
         auto localUrl = QUrl::fromLocalFile(path);
         QCOMPARE(FileMetadata::localFilePath(localUrl), QDir::fromNativeSeparators(path));
         localUrl.setHost(QStringLiteral("localhost"));
