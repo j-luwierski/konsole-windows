@@ -217,13 +217,19 @@ of files are required. Do not use independent copies or conflict-producing sync.
 ### Start the remote side
 
 Copy and extract the **whole portable package** on the remote Windows x64 host.
-Run the following in PowerShell as the account whose shell you want to use:
+Run the included command wrapper in PowerShell as the account whose shell you want
+to use. It launches the portable PowerShell with a process-only execution-policy
+override; it does not alter the machine or user policy:
 
 ```powershell
-& 'C:\Tools\Konsole\bin\Start-RemoteHost.ps1' -ExchangePath 'D:\Shared\TerminalExchange' -HostId 'host1'
+& 'C:\Tools\Konsole\bin\Start-RemoteHost.cmd' -ExchangePath 'D:\Shared\TerminalExchange' -HostId 'host1'
 ```
 
-The script starts the foreground `konsole-file-host.exe`; keep its window open.
+The wrapper starts `Start-RemoteHost.ps1` in the bundled PowerShell, which then
+starts the foreground `konsole-file-host.exe`; keep its window open. If a
+domain Group Policy enforces script signing, run `Start-RemoteHost.exe` directly
+with the native `--root`, `--host` and `--key-file` arguments instead; process
+execution-policy options cannot override Group Policy.
 It creates a local pairing key under `%LOCALAPPDATA%\KonsoleFileRemote\pairing.key`
 on first use and displays the key. Enter that **64-character key** on the client,
 select the client's path to the same exchange folder, use the same host ID and
@@ -418,11 +424,13 @@ portable `bin` folder, use the whole command, including its initial `&`:
 
 ```powershell
 $Exchange = 'D:\KonsoleExchange'
-& '.\Start-RemoteHost.ps1' -ExchangePath $Exchange -HostId 'host1'
+& '.\Start-RemoteHost.cmd' -ExchangePath $Exchange -HostId 'host1'
 ```
 
 A quoted script path followed by `-ExchangePath` without `&` produces a PowerShell
-ParserError before the launcher runs. Use the actual location of your package.
+ParserError before the launcher runs. The `.cmd` wrapper avoids the unsigned-script
+policy error by applying `-ExecutionPolicy Bypass` only to its bundled PowerShell
+process. Use the actual location of your package.
 For an RDP-redirected drive, a client folder such as `C:\KonsoleExchange` can be
 visible to the host as `\\tsclient\C\KonsoleExchange`; check `Test-Path` from the
 same host session. Both paths must refer to the same underlying directory.

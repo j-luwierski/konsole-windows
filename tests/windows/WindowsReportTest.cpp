@@ -53,7 +53,7 @@ private Q_SLOTS:
             QStringLiteral("bin/konsole.exe"), QStringLiteral("bin/konsoleapp.dll"), QStringLiteral("bin/konsoleprivate.dll"),
             QStringLiteral("bin/Qt6Core.dll"), QStringLiteral("bin/Qt6Gui.dll"), QStringLiteral("bin/Qt6Widgets.dll"),
             QStringLiteral("bin/Qt6Concurrent.dll"), QStringLiteral("bin/platforms/qwindows.dll"),
-            QStringLiteral("bin/konsole-file-host.exe"), QStringLiteral("bin/Start-RemoteHost.exe"), QStringLiteral("bin/Start-RemoteHost.ps1"),
+            QStringLiteral("bin/konsole-file-host.exe"), QStringLiteral("bin/Start-RemoteHost.exe"), QStringLiteral("bin/Start-RemoteHost.ps1"), QStringLiteral("bin/Start-RemoteHost.cmd"),
             QStringLiteral("bin/KonsoleCompletion.ps1"), QStringLiteral("powershell/pwsh.exe"), QStringLiteral("powershell/coreclr.dll"),
             QStringLiteral("powershell/Modules/PSReadLine/PSReadLine.psd1"),
             QStringLiteral("powershell/Modules/PSReadLine/Microsoft.PowerShell.PSReadLine.dll"),

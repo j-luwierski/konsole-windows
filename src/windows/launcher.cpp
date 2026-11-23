@@ -75,7 +75,7 @@ static int launch(int argc, wchar_t **argv, bool remote)
     const wchar_t *required[] = {
         L"bin\\konsole.exe", L"bin\\konsoleapp.dll", L"bin\\konsoleprivate.dll",
         L"bin\\Qt6Core.dll", L"bin\\Qt6Gui.dll", L"bin\\Qt6Widgets.dll", L"bin\\Qt6Concurrent.dll",
-        L"bin\\platforms\\qwindows.dll", L"bin\\konsole-file-host.exe", L"bin\\Start-RemoteHost.exe", L"bin\\Start-RemoteHost.ps1",
+        L"bin\\platforms\\qwindows.dll", L"bin\\konsole-file-host.exe", L"bin\\Start-RemoteHost.exe", L"bin\\Start-RemoteHost.ps1", L"bin\\Start-RemoteHost.cmd",
         L"bin\\KonsoleCompletion.ps1", L"powershell\\pwsh.exe", L"powershell\\coreclr.dll",
         L"powershell\\Modules\\PSReadLine\\PSReadLine.psd1",
         L"powershell\\Modules\\PSReadLine\\Microsoft.PowerShell.PSReadLine.dll",

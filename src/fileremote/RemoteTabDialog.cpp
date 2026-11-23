@@ -27,7 +27,7 @@ QByteArray Konsole::FileRemote::configureConnection(QWidget *parent, bool connec
     QDialog dialog(parent);
     dialog.setWindowTitle(i18n("Remote Tab via Shared Folder"));
     auto *layout = new QVBoxLayout(&dialog);
-    auto *intro = new QLabel(i18n("Start Start-RemoteHost.ps1 on the other computer first. Both computers need read, write and delete access to the same folder. Their local paths may differ."), &dialog);
+    auto *intro = new QLabel(i18n("Start Start-RemoteHost.cmd on the other computer first. It uses the bundled PowerShell without changing the machine execution policy. Both computers need read, write and delete access to the same folder. Their local paths may differ."), &dialog);
     intro->setWordWrap(true); layout->addWidget(intro);
     auto *form = new QFormLayout;
     auto *folder = new QLineEdit(settings.value(QStringLiteral("root")).toString(), &dialog);

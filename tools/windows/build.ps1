@@ -56,6 +56,7 @@ if (-not $SkipPackage) {
         if ($preflight.ExitCode -ne 0) { throw 'Native portable launcher preflight failed.' }
         if (-not (Test-Path (Join-Path $portableTest 'bin/KonsoleCompletion.ps1'))) { throw 'Completion script missing from portable ZIP.' }
         if (-not (Test-Path (Join-Path $portableTest 'bin/Start-RemoteHost.ps1'))) { throw 'Remote host launcher missing from portable ZIP.' }
+        if (-not (Test-Path (Join-Path $portableTest 'bin/Start-RemoteHost.cmd'))) { throw 'Remote host policy-safe launcher missing from portable ZIP.' }
         try {
             $originalPath = $env:PATH
             try {

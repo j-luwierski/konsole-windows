@@ -30,6 +30,7 @@ class LauncherPackaging(unittest.TestCase):
                     archive.writestr('bin/konsole-launcher.exe', b'local-build')
                     archive.writestr('bin/konsole-remote-launcher.exe', b'remote-build')
                     archive.writestr('bin/konsole.exe', b'terminal')
+                    archive.writestr('bin/Start-RemoteHost.cmd', b'-ExecutionPolicy Bypass')
                 bundler.bundle(package, shell, require_launchers=True)
                 # Re-bundling must not leave duplicate or stale entry points.
                 bundler.bundle(package, shell, require_launchers=True)
@@ -39,6 +40,7 @@ class LauncherPackaging(unittest.TestCase):
                         self.assertEqual(archive.read(name), expected)
                         self.assertEqual(archive.read('bin/' + name), expected)
                     self.assertEqual(archive.read('powershell/pwsh.exe'), b'fixture')
+                    self.assertIn(b'-ExecutionPolicy Bypass', archive.read('bin/Start-RemoteHost.cmd'))
                 incomplete = root / 'incomplete.zip'
                 with zipfile.ZipFile(incomplete, 'w') as archive:
                     archive.writestr('bin/konsole.exe', b'terminal')
