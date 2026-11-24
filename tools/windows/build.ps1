@@ -53,7 +53,17 @@ if (-not $SkipPackage) {
         $env:KONSOLE_TEST_FILE_EXE = Join-Path $portableTest 'file/file.exe'
         $env:KONSOLE_TEST_HOST_EXE = Join-Path $portableTest 'Start-RemoteHost.exe'
         $preflight = Start-Process -FilePath (Join-Path $portableTest 'Start-Konsole.exe') -ArgumentList @('--no-error-dialog', '--check-portable') -Wait -PassThru
-        if ($preflight.ExitCode -ne 0) { throw 'Native portable launcher preflight failed.' }
+        if ($preflight.ExitCode -ne 0) {
+            Write-Host "Native portable launcher preflight failed with exit code $($preflight.ExitCode)."
+            $reportDirectory = Join-Path $env:LOCALAPPDATA 'Konsole/reports'
+            if (Test-Path $reportDirectory) {
+                Get-ChildItem $reportDirectory -Filter '*.log' | Sort-Object LastWriteTime -Descending | Select-Object -First 2 | ForEach-Object {
+                    Write-Host "Launcher report: $($_.FullName)"
+                    Get-Content -LiteralPath $_.FullName -Tail 80
+                }
+            }
+            throw 'Native portable launcher preflight failed.'
+        }
         if (-not (Test-Path (Join-Path $portableTest 'bin/KonsoleCompletion.ps1'))) { throw 'Completion script missing from portable ZIP.' }
         if (-not (Test-Path (Join-Path $portableTest 'bin/Start-RemoteHost.ps1'))) { throw 'Remote host launcher missing from portable ZIP.' }
         if (-not (Test-Path (Join-Path $portableTest 'bin/Start-RemoteHost.cmd'))) { throw 'Remote host policy-safe launcher missing from portable ZIP.' }

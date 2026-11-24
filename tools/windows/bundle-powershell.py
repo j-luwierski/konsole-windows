@@ -16,6 +16,9 @@ URL = f'https://github.com/PowerShell/PowerShell/releases/download/v{VERSION}/Po
 
 
 def bundle(archive, download, require_launchers=False):
+    remote_host_wrapper = Path(__file__).with_name('Start-RemoteHost.cmd')
+    if not remote_host_wrapper.is_file():
+        raise RuntimeError('Remote host command wrapper is missing from the source tree')
     if not download.exists():
         download.parent.mkdir(parents=True, exist_ok=True)
         partial = download.with_suffix('.download')
@@ -45,7 +48,8 @@ def bundle(archive, download, require_launchers=False):
         with zipfile.ZipFile(temporary, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as output:
             for info in original.infolist():
                 if info.filename.startswith('powershell/') or info.filename in ('bundled-runtime.json', 'Start-Konsole.exe', 'Start-RemoteHost.exe',
-                                                                    'bin/Start-Konsole.exe', 'bin/Start-RemoteHost.exe'):
+                                                                    'bin/Start-Konsole.exe', 'bin/Start-RemoteHost.exe',
+                                                                    'bin/Start-RemoteHost.cmd'):
                     continue
                 with original.open(info) as source:
                     output.writestr(info.filename, source.read())
@@ -62,6 +66,7 @@ def bundle(archive, download, require_launchers=False):
                     output.writestr(launcher, data)
                     output.writestr('bin/' + launcher, data)
                     print(f'Bundled native launcher: {launcher} from {source}')
+            output.write(remote_host_wrapper, 'bin/Start-RemoteHost.cmd')
             output.writestr('bundled-runtime.json', json.dumps(metadata, indent=2) + '\n')
     temporary.replace(archive)
     archive.with_name('bundled-runtime.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
