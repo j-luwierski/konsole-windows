@@ -238,7 +238,7 @@ static TextFilePreview::Loader sshFileLoader(Session *session)
                 callback(content);
                 process->deleteLater();
             });
-        QTimer::singleShot(120000, process, [process, finishWithError] {
+        QTimer::singleShot(120000, process, [process, finishWithError]() mutable {
             if (process->state() != QProcess::NotRunning) {
                 process->kill();
                 finishWithError(QObject::tr("Timed out while requesting a file over SSH."));
